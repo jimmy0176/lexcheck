@@ -16,10 +16,12 @@ async function readQuestionnaireConfig() {
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+  const mode = new URL(req.url).searchParams.get("mode") ?? "rules";
+  const includeAi = mode === "full";
   try {
     const { prisma } = await import("@/lib/prisma");
     const checkup = await prisma.checkup.findUnique({ where: { token } });
@@ -29,8 +31,25 @@ export async function GET(
     const config = await readQuestionnaireConfig();
     const answers = (checkup.answersJson ?? {}) as Answers;
     const advice = generateRuleAdvice(config, answers);
-    const deepseek = await generateDeepSeekAdvice(config, answers);
     const hasKey = Boolean(process.env.DEEPSEEK_API_KEY?.trim());
+
+    if (!includeAi) {
+      return NextResponse.json({
+        riskLevel: advice.riskLevel,
+        riskHighlights: advice.riskHighlights,
+        recommendations: advice.recommendations,
+        aiOpinion: null,
+        fallbackSummary: advice.summary,
+        meta: {
+          deepseekConfigured: hasKey,
+          usedDeepseek: false,
+          deepseekError: null,
+          deepseekHttpStatus: null,
+        },
+      });
+    }
+
+    const deepseek = await generateDeepSeekAdvice(config, answers);
 
     return NextResponse.json({
       riskLevel: advice.riskLevel,

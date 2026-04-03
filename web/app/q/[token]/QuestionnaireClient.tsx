@@ -15,6 +15,17 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type SaveState =
   | { kind: "idle" }
@@ -54,6 +65,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
   const [saveMode, setSaveMode] = useState<"server" | "local">("server");
+  const [mobileProgressOpen, setMobileProgressOpen] = useState(false);
+  const [autofillOpen, setAutofillOpen] = useState(false);
   const debounceTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -205,6 +218,37 @@ export function QuestionnaireClient({ token }: { token: string }) {
     scheduleSave(value, answers);
   }
 
+  function fillFirstUnansweredChoices(base: Answers): Answers {
+    if (!config) return base;
+    const next = { ...base };
+    for (const section of config.sections) {
+      for (const q of section.questions) {
+        if (isAnswered(q, next[q.qid])) continue;
+        if (q.type === "single_choice") {
+          const first = q.options[0]?.value;
+          if (first) next[q.qid] = { kind: "single_choice", value: first };
+        } else if (q.type === "multi_choice_with_other") {
+          const first = q.options[0]?.value;
+          if (first) {
+            next[q.qid] = {
+              kind: "multi_choice_with_other",
+              values: [first],
+              otherText: "",
+            };
+          }
+        }
+      }
+    }
+    return next;
+  }
+
+  function applyAutofillFirstOptions() {
+    const next = fillFirstUnansweredChoices(answers);
+    setAnswers(next);
+    scheduleSave(companyName, next);
+    setAutofillOpen(false);
+  }
+
   if (!config || !computed) {
     return (
       <main className="min-h-dvh bg-background">
@@ -221,6 +265,45 @@ export function QuestionnaireClient({ token }: { token: string }) {
   return (
     <main className="min-h-dvh bg-background">
       <div className="mx-auto w-full max-w-6xl px-6 py-10">
+        <div className="sticky top-14 z-40 -mx-6 border-b bg-background/95 px-6 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 lg:hidden">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between gap-3 text-left"
+            onClick={() => setMobileProgressOpen((o) => !o)}
+            aria-expanded={mobileProgressOpen}
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>填写进度</span>
+                <span className="tabular-nums">
+                  {computed.answered}/{computed.total} · {computed.percent}%
+                </span>
+              </div>
+              <Progress className="mt-1.5 h-1.5" value={computed.percent} />
+            </div>
+            {mobileProgressOpen ? (
+              <ChevronUp className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            ) : (
+              <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+            )}
+          </button>
+          {mobileProgressOpen && (
+            <div className="mt-3 max-h-48 space-y-2 overflow-y-auto border-t pt-3">
+              {computed.perSection.map((s) => (
+                <div key={s.sectionId}>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="truncate text-muted-foreground">{s.title}</span>
+                    <span className="tabular-nums text-muted-foreground">
+                      {s.answered}/{s.total}
+                    </span>
+                  </div>
+                  <Progress className="mt-1 h-1" value={s.percent} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className="flex items-start justify-between gap-6">
           <div>
             <div className="text-sm text-muted-foreground">客户问卷</div>
@@ -259,7 +342,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
             </div>
           </div>
 
-          <div className="hidden w-72 shrink-0 lg:block">
+          <div className="hidden w-72 shrink-0 lg:block lg:sticky lg:top-16 lg:self-start">
             <Card className="p-4">
               <div className="text-sm font-medium">填写进度</div>
               <div className="mt-3">
@@ -402,10 +485,18 @@ export function QuestionnaireClient({ token }: { token: string }) {
             ))}
           </div>
 
-          <div className="lg:sticky lg:top-6 lg:self-start">
+          <div className="lg:sticky lg:top-16 lg:self-start">
             <Card className="p-4">
               <div className="text-sm font-medium">操作</div>
               <div className="mt-3 space-y-2">
+                <Button
+                  className="w-full"
+                  variant="outline"
+                  disabled={readonly}
+                  onClick={() => setAutofillOpen(true)}
+                >
+                  测试：一键选首项
+                </Button>
                 <Button
                   className="w-full"
                   variant="secondary"
@@ -492,6 +583,24 @@ export function QuestionnaireClient({ token }: { token: string }) {
             </Card>
           </div>
         </div>
+
+        <AlertDialog open={autofillOpen} onOpenChange={setAutofillOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>一键选择每题首项？</AlertDialogTitle>
+              <AlertDialogDescription>
+                将为所有<strong>未填写</strong>的单选、多选题自动选择第一个选项；简答题不会自动填写。
+                正式环境请谨慎使用，避免产生不真实数据。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction type="button" onClick={applyAutofillFirstOptions}>
+                确认
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </main>
   );
