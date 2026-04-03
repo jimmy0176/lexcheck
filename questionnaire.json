@@ -1,0 +1,1167 @@
+{
+  "formKey": "enterprise-legal-advisor-checkup",
+  "title": "企业法律顾问体检问卷",
+  "version": "v1_pdf_extracted_fixed",
+  "requiredMode": "as_pdf_only",
+  "skipLogicMode": "ignore",
+  "sections": [
+    {
+      "sectionId": "hr",
+      "title": "一、人力资源",
+      "order": 1,
+      "questions": [
+        {
+          "qid": "1-1",
+          "type": "single_choice",
+          "question": "公司是否与所有员工签订书面劳动合同并依法备案？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "部分签订" }
+          ]
+        },
+        {
+          "qid": "1-2",
+          "type": "single_choice",
+          "question": "员工手册及内部规章制度是否经过民主程序制定并向员工公示？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，程序完整" },
+            { "value": "opt2", "label": "是，但程序不完整" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "1-3",
+          "type": "single_choice",
+          "question": "公司的薪酬发放、社保及公积金缴纳是否完全符合法定标准？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否，存在拖欠/未足额缴纳情况" },
+            { "value": "opt3", "label": "部分合规" }
+          ]
+        },
+        {
+          "qid": "1-4",
+          "type": "single_choice",
+          "question": "加班审批流程是否规范，加班工资是否按法定标准支付？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，完全合规" },
+            { "value": "opt2", "label": "部分合规" },
+            { "value": "opt3", "label": "否，无明确流程/未足额支付" }
+          ]
+        },
+        {
+          "qid": "1-5",
+          "type": "single_choice",
+          "question": "员工离职时是否依法办理工作交接、档案转移及经济补偿手续？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，流程规范" },
+            { "value": "opt2", "label": "部分流程缺失" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "1-6",
+          "type": "single_choice",
+          "question": "是否与核心员工签订竞业限制协议及保密协议？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，协议条款完善" },
+            { "value": "opt2", "label": "是，但条款不规范" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "1-7",
+          "type": "single_choice",
+          "question": "招聘广告中是否存在性别、年龄、地域等歧视性表述？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，可能存在" },
+            { "value": "opt3", "label": "不确定" }
+          ]
+        },
+        {
+          "qid": "1-8",
+          "type": "single_choice",
+          "question": "是否对新员工的身份、学历、离职证明等信息进行核实留存？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，全面核实" },
+            { "value": "opt2", "label": "部分核实" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "1-9",
+          "type": "single_choice",
+          "question": "企业并购、重组过程中是否对员工安置方案进行合规审查？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "未发生过此类事项" }
+          ]
+        },
+        {
+          "qid": "1-10",
+          "type": "single_choice",
+          "question": "是否定期开展劳动用工合规培训及风险自查？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，每年至少 1 次" },
+            { "value": "opt2", "label": "偶尔开展" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "1-11",
+          "type": "single_choice",
+          "question": "是否落实带薪年休假？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，安排休假" },
+            { "value": "opt2", "label": "未安排休假，但支付补偿" },
+            { "value": "opt3", "label": "未安排休假，也无补偿" }
+          ]
+        },
+        {
+          "qid": "1-12",
+          "type": "single_choice",
+          "question": "是否足额支付工伤员工停工留薪期工资？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，足额支付" },
+            { "value": "opt2", "label": "部分支付" },
+            { "value": "opt3", "label": "否" }
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "equity_funding",
+      "title": "二、股权投融资",
+      "order": 2,
+      "questions": [
+        {
+          "qid": "2-1",
+          "type": "single_choice",
+          "question": "公司股权结构是否清晰，是否存在隐名股东或股权代持情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "存在，有书面协议" },
+            { "value": "opt2", "label": "存在，无书面协议" },
+            { "value": "opt3", "label": "不存在" }
+          ]
+        },
+        {
+          "qid": "2-2",
+          "type": "single_choice",
+          "question": "公司股东是否已经全部履行实缴出资义务？出资程序是否合法合规？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，出资程序合法" },
+            { "value": "opt2", "label": "是，出资程序瑕疵" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "2-3",
+          "type": "single_choice",
+          "question": "在股权转让中，是否存在转让前或者转让后未履行实缴出资义务的情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "没有发生过股权转让" }
+          ]
+        },
+        {
+          "qid": "2-4",
+          "type": "single_choice",
+          "question": "公司是否存在股权质押、冻结等权利负担情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，已合规披露" },
+            { "value": "opt2", "label": "是，未合规披露" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "2-5",
+          "type": "single_choice",
+          "question": "公司章程是否对股东权利义务、表决机制等作出明确合规约定？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，约定清晰" },
+            { "value": "opt2", "label": "是，但约定不完整" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "2-6",
+          "type": "single_choice",
+          "question": "公司是否存在对外投资，包括股权投资、债权投资或者其他形式的投资？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" }
+          ]
+        },
+        {
+          "qid": "2-7",
+          "type": "single_choice",
+          "question": "公司历次投融资决策是否履行了公司章程规定的股东会、董事会决议程序？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "没有发生过投融资" }
+          ]
+        },
+        {
+          "qid": "2-8",
+          "type": "single_choice",
+          "question": "公司对外投资或接受第三方投资前，是否对交易相对方进行全面法律尽职调查，评估法律风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，每次都做" },
+            { "value": "opt2", "label": "是，重大投资才做" },
+            { "value": "opt3", "label": "否" },
+            { "value": "opt4", "label": "没有发生过对外投资或接受第三方投资" }
+          ]
+        },
+        {
+          "qid": "2-9",
+          "type": "single_choice",
+          "question": "公司对外投资或接受第三方投资时，是否会签署投资协议，对投资权利义务、对赌条款、退出机制、违约责任进行明确约定？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，明确约定" },
+            { "value": "opt2", "label": "是，约定不完善" },
+            { "value": "opt3", "label": "否" },
+            { "value": "opt4", "label": "没有发生过对外投资或接受第三方投资" }
+          ]
+        },
+        {
+          "qid": "2-10",
+          "type": "single_choice",
+          "question": "公司是否存在委托他人代为投资、隐名投资等情形，相关权利义务是否有书面约定？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "存在，有书面约定" },
+            { "value": "opt2", "label": "存在，无书面约定" },
+            { "value": "opt3", "label": "不存在" }
+          ]
+        },
+        {
+          "qid": "2-11",
+          "type": "single_choice",
+          "question": "公司投融资相关的协议文件、公司内部决议文件等是否委托律师进行合规审查？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "没有发生过投融资行为" }
+          ]
+        },
+        {
+          "qid": "2-12",
+          "type": "single_choice",
+          "question": "公司目前是否存在与对外投融资相关的潜在争议或风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" }
+          ]
+        },
+        {
+          "qid": "2-13",
+          "type": "single_choice",
+          "question": "投后管理中是否定期对标的公司合规运营情况进行跟踪？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，建立常态化机制" },
+            { "value": "opt2", "label": "偶尔跟踪" },
+            { "value": "opt3", "label": "否" },
+            { "value": "opt4", "label": "没有发生过投融资行为" }
+          ]
+        },
+        {
+          "qid": "2-14",
+          "type": "single_choice",
+          "question": "公司在未来 12 个月内，是否有新增投资或融资计划？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" }
+          ]
+        },
+        {
+          "qid": "2-15",
+          "type": "single_choice",
+          "question": "公司控制权是否稳定，有无潜在股权纠纷、控制权争议或治理僵局风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，稳定无风险" },
+            { "value": "opt2", "label": "存在潜在风险" },
+            { "value": "opt3", "label": "已出现相关问题" }
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "tax",
+      "title": "三、税收法律",
+      "order": 3,
+      "questions": [
+        {
+          "qid": "3-1",
+          "type": "single_choice",
+          "question": "各项税种（增值税、企业所得税、个税等）是否均按期申报缴纳？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "存在逾期申报情况" }
+          ]
+        },
+        {
+          "qid": "3-2",
+          "type": "single_choice",
+          "question": "公司是否存在税款多缴、少缴或被税务机关约谈/处罚的情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，存在税款异常" },
+            { "value": "opt3", "label": "是，曾被约谈/处罚" }
+          ]
+        },
+        {
+          "qid": "3-3",
+          "type": "single_choice",
+          "question": "享受税收优惠政策时是否具备完整的支持性资料？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，资料齐全" },
+            { "value": "opt2", "label": "部分具备" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "3-4",
+          "type": "single_choice",
+          "question": "股权转让、并购等交易是否进行过专项税务评估？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "未发生此类交易" }
+          ]
+        },
+        {
+          "qid": "3-5",
+          "type": "single_choice",
+          "question": "进项发票抵扣是否规范，有无异常发票或无法抵扣情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，规范抵扣" },
+            { "value": "opt2", "label": "存在少量异常" },
+            { "value": "opt3", "label": "存在较多问题" }
+          ]
+        },
+        {
+          "qid": "3-6",
+          "type": "single_choice",
+          "question": "关联交易定价是否符合独立交易原则，有无税务风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，合规" },
+            { "value": "opt2", "label": "不确定" },
+            { "value": "opt3", "label": "否，存在风险" }
+          ]
+        },
+        {
+          "qid": "3-7",
+          "type": "single_choice",
+          "question": "跨境支付（服务费、特许权使用费等）是否办理税务备案？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，完全合规" },
+            { "value": "opt2", "label": "部分合规" },
+            { "value": "opt3", "label": "否" },
+            { "value": "opt4", "label": "无跨境支付" }
+          ]
+        },
+        {
+          "qid": "3-8",
+          "type": "single_choice",
+          "question": "企业所得税汇算清缴是否依法完成，有无被调整情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，无调整" },
+            { "value": "opt2", "label": "是，曾被调整" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "3-9",
+          "type": "single_choice",
+          "question": "是否建立发票开具、审核、保管的全流程管理制度？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，制度完善" },
+            { "value": "opt2", "label": "是，但流程不规范" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "3-10",
+          "type": "single_choice",
+          "question": "是否定期开展税务自查或委托外部机构进行税务体检？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，每年至少 1 次" },
+            { "value": "opt2", "label": "偶尔开展" },
+            { "value": "opt3", "label": "否" }
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "ip",
+      "title": "四、知识产权",
+      "order": 4,
+      "questions": [
+        {
+          "qid": "4-1",
+          "type": "single_choice",
+          "question": "公司核心产品/服务是否已取得注册商标？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，覆盖全面" },
+            { "value": "opt2", "label": "是，但覆盖不全" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-2",
+          "type": "single_choice",
+          "question": "研发的技术成果是否及时申请专利并获得授权？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，已全面布局" },
+            { "value": "opt2", "label": "是，部分申请" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-3",
+          "type": "single_choice",
+          "question": "软件、网站、APP 等作品是否进行著作权登记？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，全部登记" },
+            { "value": "opt2", "label": "部分登记" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-4",
+          "type": "single_choice",
+          "question": "是否定期监测商标、专利有无被侵权或抢注的情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，建立监测机制" },
+            { "value": "opt2", "label": "偶尔监测" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-5",
+          "type": "single_choice",
+          "question": "使用他人知识产权（商标、专利等）是否获得合法授权？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，协议规范" },
+            { "value": "opt2", "label": "是，但协议不完整" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-6",
+          "type": "single_choice",
+          "question": "员工职务作品及研发成果的知识产权归属是否明确约定？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，在合同中明确" },
+            { "value": "opt2", "label": "部分约定" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-7",
+          "type": "single_choice",
+          "question": "合作开发项目中，知识产权归属及使用方式是否签订协议？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，约定清晰" },
+            { "value": "opt2", "label": "约定模糊" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-8",
+          "type": "single_choice",
+          "question": "是否建立商业秘密保护制度，对核心机密采取保密措施？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，制度完善" },
+            { "value": "opt2", "label": "有基本措施" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "4-9",
+          "type": "single_choice",
+          "question": "公司有无发生过商业秘密泄密事件，包括客户名单泄密和技术资料泄密？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否，无泄密" },
+            { "value": "opt2", "label": "是，有泄密" }
+          ]
+        },
+        {
+          "qid": "4-10",
+          "type": "single_choice",
+          "question": "是否有公司核心技术人员或高管离职后，创办同类公司销售同类产品？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，有上述情况" },
+            { "value": "opt2", "label": "否，无上述情况" }
+          ]
+        },
+        {
+          "qid": "4-11",
+          "type": "single_choice",
+          "question": "是否有招聘其他公司离职的核心技术人员或高管，有无对竞业限制或商业秘密保密情况进行过核实？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，有招聘过，有核实无风险" },
+            { "value": "opt2", "label": "是，有招聘过，无核实" },
+            { "value": "opt3", "label": "否，未招聘" }
+          ]
+        },
+        {
+          "qid": "4-12",
+          "type": "single_choice",
+          "question": "使用第三方开源代码时是否遵守开源协议要求？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，严格遵守" },
+            { "value": "opt2", "label": "基本遵守" },
+            { "value": "opt3", "label": "否" },
+            { "value": "opt4", "label": "未使用开源代码" }
+          ]
+        },
+        {
+          "qid": "4-13",
+          "type": "single_choice",
+          "question": "公司产品是否出口国外，有无在销售国家注册商标及专利？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，有注册" },
+            { "value": "opt2", "label": "否，未注册" }
+          ]
+        },
+        {
+          "qid": "4-14",
+          "type": "single_choice",
+          "question": "产品出口前，有无在销售国家进行过专利侵权风险排查？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，有排查" },
+            { "value": "opt2", "label": "否，无排查" }
+          ]
+        },
+        {
+          "qid": "4-15",
+          "type": "single_choice",
+          "question": "曾因知识产权问题发生过纠纷或被投诉吗？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，已解决" },
+            { "value": "opt3", "label": "是，未解决" }
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "family_inheritance",
+      "title": "五、婚家传承",
+      "order": 5,
+      "questions": [
+        {
+          "qid": "5-1",
+          "type": "single_choice",
+          "question": "家庭财产与企业资产是否存在混同（如共用账户、债务连带）？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否，界限清晰" },
+            { "value": "opt2", "label": "存在部分混同" },
+            { "value": "opt3", "label": "是，严重混同" }
+          ]
+        },
+        {
+          "qid": "5-2",
+          "type": "single_choice",
+          "question": "股东或配偶是否为公司债务提供担保？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" }
+          ]
+        },
+        {
+          "qid": "5-3",
+          "type": "single_choice",
+          "question": "公司是否为股东债务提供担保？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" }
+          ]
+        },
+        {
+          "qid": "5-4",
+          "type": "single_choice",
+          "question": "股东是否针对婚变、个人债务诉讼或担保被追偿情形，评估过对公司股权结构及控制权的影响并制定家企风险隔离方案？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "已评估并制定风险隔离方案" },
+            { "value": "opt2", "label": "有初步考虑，但未形成书面方案" },
+            { "value": "opt3", "label": "未评估相关影响" }
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "international_business",
+      "title": "六、国际商事",
+      "order": 6,
+      "questions": [
+        {
+          "qid": "6-1",
+          "type": "single_choice",
+          "question": "贵公司目前是否存在涉外或跨境业务？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否（请跳转至第七部分）" }
+          ]
+        },
+        {
+          "qid": "6-2",
+          "type": "single_choice",
+          "question": "公司是否建立专门的涉外合规管理或外聘涉外律师支持机制？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，机制完善" },
+            { "value": "opt2", "label": "有初步安排" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "6-3",
+          "type": "single_choice",
+          "question": "是否因跨境业务发生过法律纠纷或重大合规风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，已解决" },
+            { "value": "opt3", "label": "是，未解决" }
+          ]
+        },
+        {
+          "qid": "6-4",
+          "type": "single_choice",
+          "question": "贵公司目前是否存在货物进出口/跨境电商业务？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否（请跳转至 6-8 题）" }
+          ]
+        },
+        {
+          "qid": "6-5",
+          "type": "single_choice",
+          "question": "是否已依法办理进出口经营权及相关备案？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，资质齐全" },
+            { "value": "opt2", "label": "部分取得" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "6-6",
+          "type": "single_choice",
+          "question": "跨境贸易是否遵守进出口管制、海关申报及相关法律法规？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，完全合规" },
+            { "value": "opt2", "label": "部分合规" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "6-7",
+          "type": "single_choice",
+          "question": "是否因跨境贸易发生过海关、出口管制等行政调查或处罚？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，已处理完毕" },
+            { "value": "opt3", "label": "是，尚未处理完毕" }
+          ]
+        },
+        {
+          "qid": "6-8",
+          "type": "single_choice",
+          "question": "贵公司目前是否存在服务出口业务（含技术服务/技术许可/特许权使用）？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否（请跳转至 6-11 题）" }
+          ]
+        },
+        {
+          "qid": "6-9",
+          "type": "single_choice",
+          "question": "与境外客户签订的技术/服务/许可合同是否明确约定适用法律及争议解决方式？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，约定明确" },
+            { "value": "opt2", "label": "约定不完整" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "6-10",
+          "type": "single_choice",
+          "question": "是否存在因技术许可或服务质量产生的跨境争议？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，已解决" },
+            { "value": "opt3", "label": "是，未解决" }
+          ]
+        },
+        {
+          "qid": "6-11",
+          "type": "single_choice",
+          "question": "贵公司目前是否存在境外投资（ODI、并购、设立境外公司等）？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否（请跳转至 6-15 题）" }
+          ]
+        },
+        {
+          "qid": "6-12",
+          "type": "single_choice",
+          "question": "是否完成 ODI 备案/核准及外汇登记等法定程序？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，程序完整" },
+            { "value": "opt2", "label": "否" }
+          ]
+        },
+        {
+          "qid": "6-13",
+          "type": "single_choice",
+          "question": "是否了解并遵守目标国家/地区的法律及 ESG 相关要求？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，全面了解" },
+            { "value": "opt2", "label": "部分了解" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "6-14",
+          "type": "single_choice",
+          "question": "境外投资是否发生过法律纠纷？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，已解决" },
+            { "value": "opt3", "label": "是，未解决" }
+          ]
+        },
+        {
+          "qid": "6-15",
+          "type": "single_choice",
+          "question": "贵公司目前是否存在跨境支付（向境外支付服务费、许可费、分红等）？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否（请跳转至第七部分）" }
+          ]
+        },
+        {
+          "qid": "6-16",
+          "type": "single_choice",
+          "question": "跨境支付是否依法办理税务备案及代扣代缴手续？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，合规办理" },
+            { "value": "opt2", "label": "部分办理" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "6-17",
+          "type": "single_choice",
+          "question": "是否因跨境支付问题被税务或外汇管理部门约谈或处罚？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，已处理" },
+            { "value": "opt3", "label": "是，未处理" }
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "criminal_business",
+      "title": "七、商业刑事",
+      "order": 7,
+      "questions": [
+        {
+          "qid": "7-1",
+          "type": "single_choice",
+          "question": "公司是否建立反腐败（包括但不限于商业贿赂、职务侵占、挪用资金）、反不正当竞争的合规制度？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，制度完善" },
+            { "value": "opt2", "label": "有基本制度" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "7-2",
+          "type": "single_choice",
+          "question": "财务报销、资金往来是否规范，有无虚开发票尤其是虚开增值税专用发票风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，完全规范" },
+            { "value": "opt2", "label": "部分规范" },
+            { "value": "opt3", "label": "否，存在风险" }
+          ]
+        },
+        {
+          "qid": "7-3",
+          "type": "single_choice",
+          "question": "是否对员工尤其是重点部门员工（包括但不限于人力资源、采购、仓管、环保等部门）开展过商业刑事风险防范培训？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，定期开展" },
+            { "value": "opt2", "label": "偶尔开展" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "7-4",
+          "type": "single_choice",
+          "question": "是否针对高管及核心员工开展过反腐败警示教育及培训？是否存在非国家工作人员腐败等风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "不确定" },
+            { "value": "opt3", "label": "存在相关线索" }
+          ]
+        },
+        {
+          "qid": "7-5",
+          "type": "single_choice",
+          "question": "公司经营中是否存在侵犯他人知识产权或者被他人侵犯知识产权的刑事风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "可能存在" },
+            { "value": "opt3", "label": "不确定" }
+          ]
+        },
+        {
+          "qid": "7-6",
+          "type": "single_choice",
+          "question": "有无因环保、安全生产问题面临刑事追责的风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "存在潜在风险" },
+            { "value": "opt3", "label": "已被调查" }
+          ]
+        },
+        {
+          "qid": "7-7",
+          "type": "single_choice",
+          "question": "关联交易、对外担保等行为是否合规，有无职务侵占、挪用资金风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，合规无风险" },
+            { "value": "opt2", "label": "存在潜在风险" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "7-8",
+          "type": "single_choice",
+          "question": "是否建立应对刑事调查、侦查的危机处理机制？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，有完善方案" },
+            { "value": "opt2", "label": "有初步措施" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "7-9",
+          "type": "single_choice",
+          "question": "公司是否曾涉及刑事诉讼或被公安机关调查？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，已结案" },
+            { "value": "opt3", "label": "是，正在调查" }
+          ]
+        },
+        {
+          "qid": "7-10",
+          "type": "multi_choice_with_other",
+          "question": "对商业刑事风险的主要担忧领域是？（可多选）",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "虚开发票" },
+            { "value": "opt2", "label": "商业贿赂" },
+            { "value": "opt3", "label": "侵犯知识产权" },
+            { "value": "opt4", "label": "环保犯罪" },
+            { "value": "opt5", "label": "职务侵占、挪用资金" },
+            { "value": "opt6", "label": "安全生产" },
+            { "value": "opt7", "label": "数据安全" }
+          ],
+          "other": {
+            "enabled": true,
+            "placeholder": "其他__________"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "dilemma_rescue",
+      "title": "八、困境挽救",
+      "order": 8,
+      "questions": [
+        {
+          "qid": "8-1",
+          "type": "single_choice",
+          "question": "公司目前是否存在经营或财务困境？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否（请酌情选填后续问题）" },
+            { "value": "opt2", "label": "存在一定经营压力" },
+            { "value": "opt3", "label": "存在明显债务或流动性风险" }
+          ]
+        },
+        {
+          "qid": "8-2",
+          "type": "single_choice",
+          "question": "公司是否已对资产、负债及现金流情况进行系统梳理？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，已形成完整财务与债务清单" },
+            { "value": "opt2", "label": "部分梳理" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "8-3",
+          "type": "single_choice",
+          "question": "是否存在已到期债务无法清偿或即将到期无法偿还的情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，金额较小" },
+            { "value": "opt3", "label": "是，金额较大" }
+          ]
+        },
+        {
+          "qid": "8-4",
+          "type": "single_choice",
+          "question": "公司目前是否存在大量诉讼、仲裁或资产被查封、冻结的情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，少量案件/部分资产受限" },
+            { "value": "opt3", "label": "是，多起案件/大量资产受限" }
+          ]
+        },
+        {
+          "qid": "8-5",
+          "type": "single_choice",
+          "question": "公司是否存在公司治理僵局（如股东分歧、控制权争议、决策无法推进）？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，轻微僵局" },
+            { "value": "opt3", "label": "是，严重僵局" }
+          ]
+        },
+        {
+          "qid": "8-6",
+          "type": "single_choice",
+          "question": "公司目前是否存在员工工资、社保拖欠或供应商款项拖欠问题？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否（请跳转至 8-9 题）" },
+            { "value": "opt2", "label": "是，少量拖欠" },
+            { "value": "opt3", "label": "是，严重拖欠" }
+          ]
+        },
+        {
+          "qid": "8-7",
+          "type": "single_choice",
+          "question": "是否已评估可能引发群体性事件或连锁违约风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是" },
+            { "value": "opt2", "label": "否" },
+            { "value": "opt3", "label": "不确定" }
+          ]
+        },
+        {
+          "qid": "8-8",
+          "type": "single_choice",
+          "question": "是否已制定阶段性化解方案（如分期清偿、协商延期、债务重组等）？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，已有明确方案" },
+            { "value": "opt2", "label": "有初步安排" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "8-9",
+          "type": "single_choice",
+          "question": "公司是否存在银行借款或民间借贷逾期风险？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否（请跳转至 8-12 题）" },
+            { "value": "opt2", "label": "存在潜在风险" },
+            { "value": "opt3", "label": "已发生逾期" }
+          ]
+        },
+        {
+          "qid": "8-10",
+          "type": "single_choice",
+          "question": "是否存在股东或实控人为公司债务承担连带责任的情况？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "是，部分承担" },
+            { "value": "opt3", "label": "是，全面承担" }
+          ]
+        },
+        {
+          "qid": "8-11",
+          "type": "single_choice",
+          "question": "是否存在高利率融资或融资结构不合理问题？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "存在一定问题" },
+            { "value": "opt3", "label": "问题较严重" }
+          ]
+        },
+        {
+          "qid": "8-12",
+          "type": "single_choice",
+          "question": "公司是否存在闲置、低效或难以处置的资产？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "否" },
+            { "value": "opt2", "label": "少量存在" },
+            { "value": "opt3", "label": "大量存在" }
+          ]
+        },
+        {
+          "qid": "8-13",
+          "type": "single_choice",
+          "question": "是否尝试过庭外重组、债务协商或引入战略投资人？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，已尝试" },
+            { "value": "opt2", "label": "有计划" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "8-14",
+          "type": "single_choice",
+          "question": "是否了解破产重整、和解或清算等法律程序？",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "是，深入了解" },
+            { "value": "opt2", "label": "基本了解" },
+            { "value": "opt3", "label": "否" }
+          ]
+        },
+        {
+          "qid": "8-15",
+          "type": "multi_choice_with_other",
+          "question": "企业陷入困境的主要原因是？（可多选）",
+          "required": false,
+          "options": [
+            { "value": "opt1", "label": "外部市场环境变化" },
+            { "value": "opt2", "label": "内部管理问题" },
+            { "value": "opt3", "label": "融资结构问题" },
+            { "value": "opt4", "label": "投资决策失误" }
+          ],
+          "other": {
+            "enabled": true,
+            "placeholder": "其他：_________"
+          }
+        }
+      ]
+    },
+    {
+      "sectionId": "other",
+      "title": "九、其他",
+      "order": 9,
+      "questions": [
+        {
+          "qid": "9-1",
+          "type": "textarea",
+          "question": "当前贵公司最希望解决的法律问题是（简答）：",
+          "required": false,
+          "placeholder": ""
+        },
+        {
+          "qid": "9-2",
+          "type": "textarea",
+          "question": "贵公司未来三年的发展计划是（简答）：",
+          "required": false,
+          "placeholder": ""
+        }
+      ]
+    }
+  ]
+}

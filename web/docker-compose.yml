@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: lexcheck-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: lexcheck
+      POSTGRES_PASSWORD: lexcheck
+      POSTGRES_DB: lexcheck
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
+

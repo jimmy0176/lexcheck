@@ -1,0 +1,31 @@
+# 依赖与构建
+**/node_modules/
+**/.next/
+**/out/
+**/dist/
+**/build/
+*.tsbuildinfo
+
+# 密钥与环境（允许 .env.example）
+**/.env
+**/.env.*
+!**/.env.example
+
+# 部署产物与本地包
+*.zip
+
+# 日志与系统文件
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 仓库根目录下的本地业务文档（勿提交到 Git）
+/*.pdf
+/*.doc
+/*.docx
