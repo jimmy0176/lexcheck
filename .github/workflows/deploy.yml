@@ -1,0 +1,75 @@
+# 推送到 master/main 后通过 SSH 在服务器上 git pull 并构建、重启 PM2。
+#
+# 在 GitHub：Settings → Secrets and variables → Actions → New repository secret
+#   DEPLOY_HOST       服务器 IP 或域名
+#   DEPLOY_USER       SSH 登录用户（如 root）
+#   DEPLOY_SSH_KEY    用于连接该服务器的私钥全文（-----BEGIN ... PRIVATE KEY-----）
+#   DEPLOY_REPO_PATH  仓库在服务器上的根目录（含 web/），例如 /opt/lexcheck/lexcheck
+#
+# 可选 Secret（非默认 22 端口时）：
+#   DEPLOY_PORT       SSH 端口，如 22
+#
+# 服务器一次性准备（在 SSH 里执行，路径按你实际调整）：
+#   1) 在服务器生成专用密钥或把本机公钥写入 ~/.ssh/authorized_keys
+#   2) 若仓库为私有：在仓库 Settings → Deploy keys 添加服务器上 /root/.ssh/id_rsa.pub（只读即可），
+#      并 clone：  cd /opt/lexcheck && git clone git@github.com:OWNER/REPO.git lexcheck
+#   3) 若仍希望 /opt/lexcheck/web 作为运行目录，可： ln -sfn /opt/lexcheck/lexcheck/web /opt/lexcheck/web
+#   4) 保留 /opt/lexcheck/.env.production，本工作流会复制为 web/.env
+#   5) 首次在服务器：cd .../web && npm ci && npx prisma generate && npx prisma db push && npm run build
+#      && pm2 start npm --name lexcheck-web -- start -- -p 3000 && pm2 save
+
+name: Deploy
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "web/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-vps
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        env:
+          DEPLOY_REPO_PATH: ${{ secrets.DEPLOY_REPO_PATH }}
+          GIT_BRANCH: ${{ github.ref_name }}
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          command_timeout: 30m
+          script_stop: true
+          envs: DEPLOY_REPO_PATH,GIT_BRANCH
+          script: |
+            set -euo pipefail
+            if [ -z "${DEPLOY_REPO_PATH:-}" ]; then
+              echo "ERROR: set repository secret DEPLOY_REPO_PATH (e.g. /opt/lexcheck/lexcheck)"
+              exit 1
+            fi
+            cd "$DEPLOY_REPO_PATH"
+            git fetch origin
+            git reset --hard "origin/${GIT_BRANCH}"
+            if [ -f /opt/lexcheck/.env.production ]; then
+              cp /opt/lexcheck/.env.production web/.env
+              chmod 600 web/.env
+            elif [ -f "$DEPLOY_REPO_PATH/../.env.production" ]; then
+              cp "$DEPLOY_REPO_PATH/../.env.production" web/.env
+              chmod 600 web/.env
+            else
+              echo "WARN: no /opt/lexcheck/.env.production found; ensure web/.env exists on server"
+            fi
+            cd web
+            npm ci
+            npx prisma generate
+            npx prisma db push
+            npm run build
+            pm2 restart lexcheck-web --update-env || pm2 start npm --name lexcheck-web -- start -- -p 3000
+            pm2 save
