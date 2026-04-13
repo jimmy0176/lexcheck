@@ -188,7 +188,7 @@ export function LawyerUploadPanel({ token }: { token: string }) {
           size="sm"
           variant="outline"
           disabled={files.length === 0 || uploading}
-          onClick={uploadNow}
+          onClick={() => void uploadNow()}
         >
           {uploading ? "上传中…" : "立即重试上传"}
         </Button>
