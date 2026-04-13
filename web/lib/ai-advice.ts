@@ -131,7 +131,7 @@ function extractMessageContent(data: unknown): string | null {
 export async function generateDeepSeekAdvice(
   config: QuestionnaireConfig,
   answers: Answers,
-  options?: { attachmentSummary?: string | null }
+  options?: { attachmentSummary?: string | null; customRequirement?: string | null }
 ): Promise<DeepSeekAdviceResult> {
   const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
   if (!apiKey) {
@@ -160,6 +160,9 @@ export async function generateDeepSeekAdvice(
     riskText,
     ...(options?.attachmentSummary
       ? ["", "补充材料摘要：", options.attachmentSummary]
+      : []),
+    ...(options?.customRequirement
+      ? ["", "律师补充要求：", options.customRequirement]
       : []),
   ].join("\n");
 

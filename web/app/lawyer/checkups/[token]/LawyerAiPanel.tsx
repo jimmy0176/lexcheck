@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 type Payload = {
   riskLevel: string;
@@ -34,6 +35,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
   const [aiRequested, setAiRequested] = useState(false);
   const [copyLabel, setCopyLabel] = useState("复制全文");
   const [aiElapsedSec, setAiElapsedSec] = useState(0);
+  const [customRequirement, setCustomRequirement] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -99,8 +101,14 @@ export function LawyerAiPanel({ token }: { token: string }) {
     setAiRequested(true);
     setAiElapsedSec(0);
     try {
+      const q = new URLSearchParams({
+        mode: "full",
+        includeAttachments: "true",
+      });
+      const reqText = customRequirement.trim();
+      if (reqText) q.set("customRequirement", reqText.slice(0, 1200));
       const res = await fetch(
-        `/api/lawyer/checkups/${token}/ai-summary?mode=full&includeAttachments=true`,
+        `/api/lawyer/checkups/${token}/ai-summary?${q.toString()}`,
         { cache: "no-store" }
       );
       const json = (await res.json()) as Payload & { error?: string };
@@ -114,7 +122,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
     } finally {
       setAiLoading(false);
     }
-  }, [token]);
+  }, [customRequirement, token]);
 
   useEffect(() => {
     if (!aiLoading) return;
@@ -190,6 +198,16 @@ export function LawyerAiPanel({ token }: { token: string }) {
       {rulesLoading && !data && (
         <div className="mt-3 text-sm text-muted-foreground">加载规则摘要…</div>
       )}
+      <div className="mt-3">
+        <div className="mb-1 text-sm font-medium">补充要求（可选）</div>
+        <Textarea
+          value={customRequirement}
+          onChange={(e) => setCustomRequirement(e.target.value)}
+          placeholder="例如：请重点评估股权代持、劳动仲裁与税务稽查风险，并给出分阶段整改计划。"
+          className="min-h-20"
+          disabled={aiLoading}
+        />
+      </div>
 
       {err && (
         <div className="mt-3 text-sm text-destructive">

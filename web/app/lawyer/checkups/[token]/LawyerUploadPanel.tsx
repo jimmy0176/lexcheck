@@ -66,12 +66,26 @@ export function LawyerUploadPanel({ token }: { token: string }) {
         method: "POST",
         body: form,
       });
-      const json = (await res.json()) as {
-        message?: string;
-        attachments?: ExistingAttachment[];
-      };
+      const contentType = res.headers.get("content-type") ?? "";
+      let json: { message?: string; attachments?: ExistingAttachment[] } | null = null;
+      let rawText = "";
+      if (contentType.includes("application/json")) {
+        json = (await res.json()) as {
+          message?: string;
+          attachments?: ExistingAttachment[];
+        };
+      } else {
+        rawText = await res.text();
+      }
       if (!res.ok) {
-        setErr(json.message ?? `上传失败（${res.status}）`);
+        if (res.status === 413) {
+          setErr("上传失败：文件过大（网关限制）。请联系管理员将 Nginx 的 client_max_body_size 调大到 20m。");
+          return;
+        }
+        setErr(
+          json?.message ??
+            `上传失败（${res.status}）${rawText ? `：${rawText.slice(0, 120)}` : ""}`
+        );
         return;
       }
       setFiles((prev) =>

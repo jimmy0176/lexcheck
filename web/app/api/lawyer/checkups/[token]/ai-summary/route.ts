@@ -25,6 +25,8 @@ export async function GET(
   const includeAi = mode === "full";
   const includeAttachments =
     new URL(req.url).searchParams.get("includeAttachments") === "true";
+  const customRequirement =
+    new URL(req.url).searchParams.get("customRequirement")?.trim() ?? "";
   try {
     const { prisma } = await import("@/lib/prisma");
     const checkup = await prisma.checkup.findUnique({
@@ -90,6 +92,7 @@ export async function GET(
 
     const deepseek = await generateDeepSeekAdvice(config, answers, {
       attachmentSummary,
+      customRequirement: customRequirement.slice(0, 1200),
     });
 
     return NextResponse.json({

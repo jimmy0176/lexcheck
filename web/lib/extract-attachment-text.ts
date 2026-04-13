@@ -21,8 +21,24 @@ export async function extractAttachmentText(filePath: string) {
     return truncateForPrompt(normalized, MAX_EXTRACTED_CHARS);
   }
   if (ext === ".docx") {
-    const parsed = await mammoth.extractRawText({ path: filePath });
-    const normalized = normalizeText(parsed.value || "");
+    const buf = await readFile(filePath);
+    let extracted = "";
+    try {
+      const parsed = await mammoth.extractRawText({ buffer: buf });
+      extracted = parsed.value || "";
+    } catch {
+      extracted = "";
+    }
+    // 某些 Office/WPS 文档 rawText 可能接近空值，降级为 HTML 文本剥离
+    if (!extracted.trim()) {
+      try {
+        const html = await mammoth.convertToHtml({ buffer: buf });
+        extracted = html.value.replace(/<[^>]+>/g, " ");
+      } catch {
+        extracted = "";
+      }
+    }
+    const normalized = normalizeText(extracted);
     return truncateForPrompt(normalized, MAX_EXTRACTED_CHARS);
   }
   if (ext === ".doc") {
