@@ -29,7 +29,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-6 py-12 sm:py-14">
           <h2 className="text-lg font-semibold tracking-tight">应用列表</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            当前已上架 1 个应用，后续可扩展更多合规与尽调工具。
+            当前已上架 1 个应用，更多应用正在开发中。
           </p>
           <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <li>

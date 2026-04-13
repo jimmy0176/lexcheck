@@ -18,13 +18,31 @@ enum CheckupStatus {
 }
 
 model Checkup {
-  id          String       @id @default(cuid())
-  token       String       @unique
+  id          String            @id @default(cuid())
+  token       String            @unique
   companyName String?
-  status      CheckupStatus @default(draft)
-  answersJson Json         @default("{}")
-  savedAt     DateTime     @default(now())
+  status      CheckupStatus     @default(draft)
+  answersJson Json              @default("{}")
+  savedAt     DateTime          @default(now())
   submittedAt DateTime?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  attachments CheckupAttachment[]
+}
+
+model CheckupAttachment {
+  id           String   @id @default(cuid())
+  checkupId    String
+  checkup      Checkup  @relation(fields: [checkupId], references: [id], onDelete: Cascade)
+  fileName     String
+  fileExt      String?
+  mimeType     String
+  sizeBytes    Int
+  storagePath  String
+  extractedText String?
+  extractError String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([checkupId, createdAt])
 }

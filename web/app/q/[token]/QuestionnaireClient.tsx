@@ -13,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import {
@@ -56,6 +55,21 @@ function isAnswered(q: QuestionnaireQuestion, a: Answers[string] | undefined) {
     return a.values.length > 0 || (a.otherText ?? "").trim().length > 0;
   }
   return false;
+}
+
+function visibleQuestionsForSection(
+  section: QuestionnaireConfig["sections"][number],
+  answers: Answers
+) {
+  const hasGateQuestion = section.questions.some((q) => q.qid === "6-1");
+  if (!hasGateQuestion) return section.questions;
+
+  const gateAnswer = answers["6-1"];
+  const collapseSectionSix =
+    gateAnswer?.kind === "single_choice" && gateAnswer.value === "opt2";
+
+  if (!collapseSectionSix) return section.questions;
+  return section.questions.filter((q) => q.qid === "6-1");
 }
 
 export function QuestionnaireClient({ token }: { token: string }) {
@@ -128,16 +142,22 @@ export function QuestionnaireClient({ token }: { token: string }) {
 
   const computed = useMemo(() => {
     if (!config) return null;
-    const total = config.sections.reduce((acc, s) => acc + s.questions.length, 0);
+    const total = config.sections.reduce(
+      (acc, s) => acc + visibleQuestionsForSection(s, answers).length,
+      0
+    );
     const answered = config.sections.reduce(
-      (acc, s) =>
-        acc + s.questions.filter((q) => isAnswered(q, answers[q.qid])).length,
+      (acc, s) => {
+        const visibleQuestions = visibleQuestionsForSection(s, answers);
+        return acc + visibleQuestions.filter((q) => isAnswered(q, answers[q.qid])).length;
+      },
       0
     );
     const percent = total === 0 ? 0 : Math.round((answered / total) * 100);
     const perSection = config.sections.map((s) => {
-      const t = s.questions.length;
-      const a = s.questions.filter((q) => isAnswered(q, answers[q.qid])).length;
+      const visibleQuestions = visibleQuestionsForSection(s, answers);
+      const t = visibleQuestions.length;
+      const a = visibleQuestions.filter((q) => isAnswered(q, answers[q.qid])).length;
       return {
         sectionId: s.sectionId,
         title: s.title,
@@ -261,6 +281,12 @@ export function QuestionnaireClient({ token }: { token: string }) {
   }
 
   const readonly = !!submittedAt;
+  function scrollToSection(sectionId: string) {
+    const target = document.getElementById(`section-${sectionId}`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    setMobileProgressOpen(false);
+  }
 
   return (
     <main className="min-h-dvh bg-background">
@@ -290,7 +316,12 @@ export function QuestionnaireClient({ token }: { token: string }) {
           {mobileProgressOpen && (
             <div className="mt-3 max-h-48 space-y-2 overflow-y-auto border-t pt-3">
               {computed.perSection.map((s) => (
-                <div key={s.sectionId}>
+                <button
+                  key={s.sectionId}
+                  type="button"
+                  onClick={() => scrollToSection(s.sectionId)}
+                  className="w-full rounded-md px-2 py-1 text-left hover:bg-muted/40"
+                >
                   <div className="flex items-center justify-between text-xs">
                     <span className="truncate text-muted-foreground">{s.title}</span>
                     <span className="tabular-nums text-muted-foreground">
@@ -298,7 +329,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
                     </span>
                   </div>
                   <Progress className="mt-1 h-1" value={s.percent} />
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -342,78 +373,68 @@ export function QuestionnaireClient({ token }: { token: string }) {
             </div>
           </div>
 
-          <div className="hidden w-72 shrink-0 lg:block lg:sticky lg:top-16 lg:self-start">
-            <Card className="p-4">
-              <div className="text-sm font-medium">填写进度</div>
-              <div className="mt-3">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>总体</span>
-                  <span>{computed.percent}%</span>
-                </div>
-                <Progress className="mt-2" value={computed.percent} />
-              </div>
-              <Separator className="my-4" />
-              <div className="space-y-3">
-                {computed.perSection.map((s) => (
-                  <div key={s.sectionId}>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">{s.title}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {s.answered}/{s.total}
-                      </span>
-                    </div>
-                    <Progress className="mt-2" value={s.percent} />
-                  </div>
-                ))}
-              </div>
-            </Card>
-          </div>
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
           <div className="space-y-6">
-            {config.sections.map((section) => (
-              <Card key={section.sectionId} className="p-6">
-                <div className="text-lg font-semibold tracking-tight">
+            {config.sections.map((section) => {
+              const visibleQuestions = visibleQuestionsForSection(section, answers);
+              return (
+              <Card
+                key={section.sectionId}
+                id={`section-${section.sectionId}`}
+                className="scroll-mt-28 p-5 lg:scroll-mt-20"
+              >
+                <div className="text-base font-semibold leading-6 tracking-tight">
                   {section.title}
                 </div>
-                <Separator className="my-4" />
+                <Separator className="my-2" />
                 <div className="space-y-6">
-                  {section.questions.map((q) => {
+                  {visibleQuestions.map((q) => {
                     const currentAnswer = answers[q.qid];
                     return (
                       <div key={q.qid} className="space-y-2">
                         <div className="flex items-start justify-between gap-3">
-                          <div className="text-sm font-medium leading-6">
+                          <div className="text-base font-medium leading-7">
                             <span className="mr-2 text-muted-foreground">{q.qid}</span>
                             {q.question}
                           </div>
-                          {isAnswered(q, currentAnswer) ? (
-                            <Badge variant="secondary">已填</Badge>
-                          ) : (
+                          {!isAnswered(q, currentAnswer) && (
                             <Badge variant="outline">未填</Badge>
                           )}
                         </div>
 
                         {q.type === "single_choice" && currentAnswer?.kind === "single_choice" && (
-                            <RadioGroup
-                              value={currentAnswer.value ?? ""}
-                              onValueChange={(v) =>
-                                setAnswer(q.qid, { kind: "single_choice", value: v })
-                              }
-                              className="grid gap-2"
-                            >
-                              {q.options.map((opt) => (
-                                <label
+                          <div className="grid grid-cols-2 gap-2">
+                            {q.options.map((opt) => {
+                              const checked = currentAnswer.value === opt.value;
+                              return (
+                                <button
                                   key={opt.value}
-                                  className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted/30"
+                                  type="button"
+                                  disabled={readonly}
+                                  onClick={() =>
+                                    setAnswer(q.qid, {
+                                      kind: "single_choice",
+                                      value: checked ? null : opt.value,
+                                    })
+                                  }
+                                  className="flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                  <RadioGroupItem value={opt.value} disabled={readonly} />
+                                  <span
+                                    className={`size-4 rounded-full border ${
+                                      checked
+                                        ? "border-primary bg-primary"
+                                        : "border-muted-foreground/60"
+                                    }`}
+                                    aria-hidden
+                                  />
                                   <span className="select-none">{opt.label}</span>
-                                </label>
-                              ))}
-                            </RadioGroup>
-                          )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
 
                         {q.type === "textarea" && currentAnswer?.kind === "textarea" && (
                           <Textarea
@@ -433,7 +454,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
                         {q.type === "multi_choice_with_other" &&
                           currentAnswer?.kind === "multi_choice_with_other" && (
                             <div className="space-y-3">
-                              <div className="grid gap-2">
+                              <div className="grid grid-cols-2 gap-2">
                                 {q.options.map((opt) => {
                                   const checked = currentAnswer.values.includes(opt.value);
                                   return (
@@ -482,10 +503,40 @@ export function QuestionnaireClient({ token }: { token: string }) {
                   })}
                 </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="lg:sticky lg:top-16 lg:self-start">
+          <div className="space-y-4 lg:sticky lg:top-16 lg:self-start">
+            <Card className="hidden p-4 lg:block">
+              <div className="text-sm font-medium">填写进度</div>
+              <div className="mt-3">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>总体</span>
+                  <span>{computed.percent}%</span>
+                </div>
+                <Progress className="mt-2" value={computed.percent} />
+              </div>
+              <Separator className="my-4" />
+              <div className="space-y-3">
+                {computed.perSection.map((s) => (
+                  <button
+                    key={s.sectionId}
+                    type="button"
+                    onClick={() => scrollToSection(s.sectionId)}
+                    className="w-full rounded-md p-2 text-left hover:bg-muted/40"
+                  >
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{s.title}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {s.answered}/{s.total}
+                      </span>
+                    </div>
+                    <Progress className="mt-2" value={s.percent} />
+                  </button>
+                ))}
+              </div>
+            </Card>
             <Card className="p-4">
               <div className="text-sm font-medium">操作</div>
               <div className="mt-3 space-y-2">

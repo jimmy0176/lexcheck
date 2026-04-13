@@ -63,8 +63,7 @@ export function AnswerSectionsClient({
   sections: QuestionnaireSection[];
   answers: Answers;
 }) {
-  const [mode, setMode] = useState<DisplayMode>("all");
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [mode, setMode] = useState<DisplayMode>("risk-only");
 
   const display = useMemo(() => {
     return sections.map((section) => {
@@ -79,7 +78,7 @@ export function AnswerSectionsClient({
   const hasAnyRisk = display.some((s) => s.questions.length > 0);
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="space-y-4">
       <Card className="p-4">
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -96,24 +95,6 @@ export function AnswerSectionsClient({
           >
             仅显示风险项
           </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              setCollapsed(
-                Object.fromEntries(sections.map((s) => [s.sectionId, true]))
-              )
-            }
-          >
-            全部折叠
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setCollapsed({})}
-          >
-            全部展开
-          </Button>
         </div>
       </Card>
 
@@ -123,45 +104,31 @@ export function AnswerSectionsClient({
         </Card>
       )}
 
-      {display.map(({ section, questions }) => {
-        if (mode === "risk-only" && questions.length === 0) return null;
-        const isCollapsed = collapsed[section.sectionId] ?? false;
-        return (
-          <Card key={section.sectionId} className="p-4">
-            <button
-              type="button"
-              className="flex w-full items-center justify-between text-left"
-              onClick={() =>
-                setCollapsed((prev) => ({
-                  ...prev,
-                  [section.sectionId]: !isCollapsed,
-                }))
-              }
-            >
-              <div className="text-base font-semibold">{section.title}</div>
-              <div className="text-sm text-muted-foreground">
-                {isCollapsed ? "展开" : "折叠"}
-              </div>
-            </button>
-
-            {!isCollapsed && (
-              <div className="mt-3 space-y-4">
-                {questions.map((q) => (
-                  <div key={q.qid} className="rounded-lg border bg-muted/20 p-3">
-                    <div className="text-sm font-medium leading-6">
-                      <span className="mr-2 text-muted-foreground">{q.qid}</span>
-                      {q.question}
+      <Card className="p-5">
+        <div className="space-y-5">
+          {display.map(({ section, questions }) => {
+            if (mode === "risk-only" && questions.length === 0) return null;
+            return (
+              <section key={section.sectionId} className="space-y-2">
+                <h3 className="text-base font-semibold">{section.title}</h3>
+                <div className="space-y-2">
+                  {questions.map((q) => (
+                    <div key={q.qid} className="text-sm">
+                      <div className="text-base font-medium leading-6">
+                        <span className="mr-2 text-muted-foreground">{q.qid}</span>
+                        {q.question}
+                      </div>
+                      <div className="mt-1 text-muted-foreground">
+                        答案：{formatAnswerValue(answers[q.qid], q)}
+                      </div>
                     </div>
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      答案：{formatAnswerValue(answers[q.qid], q)}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        );
-      })}
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </Card>
     </div>
   );
 }

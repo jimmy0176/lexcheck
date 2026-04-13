@@ -13,6 +13,14 @@ type Payload = {
   meta?: {
     deepseekConfigured: boolean;
     usedDeepseek: boolean;
+    attachmentsUsed?: boolean;
+    attachmentInputs?: Array<{
+      id: string;
+      fileName: string;
+      extractedChars: number;
+      includedInPrompt: boolean;
+      extractError?: string | null;
+    }>;
     deepseekError?: string | null;
     deepseekHttpStatus?: number | null;
   };
@@ -25,6 +33,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiRequested, setAiRequested] = useState(false);
   const [copyLabel, setCopyLabel] = useState("复制全文");
+  const [aiElapsedSec, setAiElapsedSec] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -55,10 +64,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
 
   const mainOpinionText = useMemo(() => {
     if (!data) return "";
-    return (
-      data.aiOpinion ??
-      `${data.fallbackSummary}（当前为规则引擎兜底输出）`
-    );
+    return data.aiOpinion ?? "AI意见待生成";
   }, [data]);
 
   const copyText = useMemo(() => {
@@ -79,13 +85,22 @@ export function LawyerAiPanel({ token }: { token: string }) {
     return lines.join("\n");
   }, [data, mainOpinionText]);
 
+  const aiProgressText = useMemo(() => {
+    if (!aiLoading) return "";
+    if (aiElapsedSec < 3) return "正在整理问卷风险点…";
+    if (aiElapsedSec < 8) return "正在读取并压缩补充材料…";
+    if (aiElapsedSec < 20) return "正在调用 DeepSeek 生成报告…";
+    return "模型生成中（长文档可能耗时更久）…";
+  }, [aiLoading, aiElapsedSec]);
+
   const runAiAnalysis = useCallback(async () => {
     setAiLoading(true);
     setErr(null);
     setAiRequested(true);
+    setAiElapsedSec(0);
     try {
       const res = await fetch(
-        `/api/lawyer/checkups/${token}/ai-summary?mode=full`,
+        `/api/lawyer/checkups/${token}/ai-summary?mode=full&includeAttachments=true`,
         { cache: "no-store" }
       );
       const json = (await res.json()) as Payload & { error?: string };
@@ -100,6 +115,14 @@ export function LawyerAiPanel({ token }: { token: string }) {
       setAiLoading(false);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (!aiLoading) return;
+    const timer = window.setInterval(() => {
+      setAiElapsedSec((prev) => prev + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [aiLoading]);
 
   const handleCopy = useCallback(async () => {
     if (!copyText) return;
@@ -127,7 +150,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
   }, [copyText]);
 
   return (
-    <Card id="ai-opinion" className="mt-6 scroll-mt-24 p-4">
+    <Card id="ai-opinion" className="scroll-mt-24 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="text-base font-semibold">AI意见（DeepSeek）</div>
         <div className="flex flex-wrap gap-2">
@@ -160,7 +183,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
 
       {!data?.meta?.deepseekConfigured && data && !rulesLoading && (
         <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
-          未配置 DEEPSEEK_API_KEY，无法进行 AI 分析；可先查看规则引擎摘要并复制。
+          未配置 DEEPSEEK_API_KEY，暂无法进行 AI 分析。
         </p>
       )}
 
@@ -173,20 +196,29 @@ export function LawyerAiPanel({ token }: { token: string }) {
           加载失败：{err}。请检查网络或稍后重试。
         </div>
       )}
+      {aiLoading && (
+        <div className="mt-3 rounded-md border bg-muted/20 p-2 text-sm text-muted-foreground">
+          <div>分析已用时：{aiElapsedSec}s</div>
+          <div className="mt-1">{aiProgressText}</div>
+        </div>
+      )}
 
       {data && (
         <>
-          <div className="mt-2 text-sm text-muted-foreground">
-            风险等级：{data.riskLevel}
-            {data.meta && !data.meta.deepseekConfigured && (
-              <span className="ml-2 text-amber-600 dark:text-amber-500">
-                （未配置 DEEPSEEK_API_KEY）
-              </span>
-            )}
-            {data.meta?.deepseekConfigured && !data.meta.usedDeepseek && aiRequested && (
-              <span className="ml-2 text-muted-foreground">
-                （DeepSeek 调用失败，已用规则摘要兜底）
-              </span>
+          <div className="mt-2">
+            <div className="text-sm font-medium">本次材料读取情况</div>
+            {data.meta?.attachmentInputs && data.meta.attachmentInputs.length > 0 ? (
+              <ul className="mt-1 space-y-1 text-sm">
+                {data.meta.attachmentInputs.map((item) => (
+                  <li key={item.id} className="text-muted-foreground">
+                    {item.fileName} · 提取 {item.extractedChars} 字
+                    {item.includedInPrompt ? " · 已纳入分析" : " · 未纳入分析"}
+                    {item.extractError ? ` · 解析异常：${item.extractError}` : ""}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="mt-1 text-sm text-muted-foreground">本次未读取到补充材料。</div>
             )}
           </div>
           {data.meta?.deepseekConfigured &&
@@ -204,30 +236,6 @@ export function LawyerAiPanel({ token }: { token: string }) {
             aria-live="polite"
           >
             {mainOpinionText}
-          </div>
-
-          <div className="mt-4">
-            <div className="text-sm font-medium">主要风险点</div>
-            {data.riskHighlights.length === 0 ? (
-              <div className="mt-2 text-sm text-muted-foreground">
-                暂无可展示风险点。
-              </div>
-            ) : (
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-                {data.riskHighlights.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="mt-4">
-            <div className="text-sm font-medium">建议动作</div>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm">
-              {data.recommendations.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
           </div>
         </>
       )}

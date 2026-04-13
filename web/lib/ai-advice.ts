@@ -130,7 +130,8 @@ function extractMessageContent(data: unknown): string | null {
 
 export async function generateDeepSeekAdvice(
   config: QuestionnaireConfig,
-  answers: Answers
+  answers: Answers,
+  options?: { attachmentSummary?: string | null }
 ): Promise<DeepSeekAdviceResult> {
   const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
   if (!apiKey) {
@@ -148,14 +149,18 @@ export async function generateDeepSeekAdvice(
   }
 
   const prompt = [
-    "你是企业法律顾问，请根据下列风险点给出简明整改建议。",
+    "你是资深企业法律顾问，请基于问卷风险点与补充材料输出详细分析报告。",
     "要求：",
-    "1) 输出中文，不超过500字；",
-    "2) 结构包含：总体判断、优先处理事项、建议动作；",
-    "3) 禁止输出与风险点无关的空泛内容。",
+    "1) 输出中文，结构化小标题分段；",
+    "2) 必含：总体风险判断、按章节风险分析、关键证据/依据、优先级整改清单（短中长期）、需进一步核查事项；",
+    "3) 如存在补充材料，必须与问卷风险点交叉印证，避免臆测；",
+    "4) 结论务实、可执行，尽量给出明确动作和责任建议。",
     "",
     "风险点：",
     riskText,
+    ...(options?.attachmentSummary
+      ? ["", "补充材料摘要：", options.attachmentSummary]
+      : []),
   ].join("\n");
 
   const base =
@@ -167,7 +172,7 @@ export async function generateDeepSeekAdvice(
     model: process.env.DEEPSEEK_MODEL?.trim() || "deepseek-chat",
     stream: false,
     temperature: 0.2,
-    max_tokens: 600,
+    max_tokens: 1200,
     messages: [
       { role: "system", content: "你是一名谨慎、实务导向的企业合规律师。" },
       { role: "user", content: prompt },
@@ -176,7 +181,7 @@ export async function generateDeepSeekAdvice(
 
   const callOnce = async () => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000);
+    const timeout = setTimeout(() => controller.abort(), 90000);
     try {
       const res = await fetch(url, {
         method: "POST",
@@ -220,13 +225,13 @@ export async function generateDeepSeekAdvice(
           httpStatus: res.status,
         };
       }
-      const text = content.length > 500 ? `${content.slice(0, 500)}…` : content;
+      const text = content.length > 3000 ? `${content.slice(0, 3000)}…` : content;
       return { text };
     } catch (e) {
       const name = e instanceof Error ? e.name : "Error";
       const msg = e instanceof Error ? e.message : String(e);
       if (name === "AbortError") {
-        return { text: null, error: `请求超时（45s）` };
+        return { text: null, error: `请求超时（90s）` };
       }
       return { text: null, error: `${name}: ${msg}` };
     } finally {

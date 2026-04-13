@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import type { Answers, QuestionnaireConfig } from "@/lib/questionnaire-types";
 import { AnswerSectionsClient } from "./AnswerSectionsClient";
 import { LawyerAiPanel } from "./LawyerAiPanel";
+import { LawyerUploadPanel } from "./LawyerUploadPanel";
+import { RiskSectionSummaryPanel } from "./RiskSectionSummaryPanel";
 
 type CheckupDetail = {
   id: string;
@@ -79,9 +81,20 @@ export default async function LawyerCheckupDetailPage({
           {checkup.submittedAt ? `· 提交时间：${checkup.submittedAt.toLocaleString()}` : ""}
         </div>
 
-        <AnswerSectionsClient sections={config.sections} answers={answers} />
-
-        <LawyerAiPanel token={checkup.token} />
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+          <div>
+            <AnswerSectionsClient sections={config.sections} answers={answers} />
+          </div>
+          <div className="lg:sticky lg:top-16 lg:self-start">
+            <RiskSectionSummaryPanel sections={config.sections} answers={answers} />
+          </div>
+        </div>
+        <div className="mt-6">
+          <LawyerUploadPanel token={checkup.token} />
+        </div>
+        <div className="mt-6">
+          <LawyerAiPanel token={checkup.token} />
+        </div>
       </div>
     </main>
   );

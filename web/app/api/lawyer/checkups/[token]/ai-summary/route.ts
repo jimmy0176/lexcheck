@@ -6,6 +6,7 @@ import {
   generateDeepSeekAdvice,
   generateRuleAdvice,
 } from "@/lib/ai-advice";
+import { truncateForPrompt } from "@/lib/checkup-attachments";
 
 export const runtime = "nodejs";
 
@@ -22,9 +23,18 @@ export async function GET(
   const { token } = await params;
   const mode = new URL(req.url).searchParams.get("mode") ?? "rules";
   const includeAi = mode === "full";
+  const includeAttachments =
+    new URL(req.url).searchParams.get("includeAttachments") === "true";
   try {
     const { prisma } = await import("@/lib/prisma");
-    const checkup = await prisma.checkup.findUnique({ where: { token } });
+    const checkup = await prisma.checkup.findUnique({
+      where: { token },
+      include: {
+        attachments: includeAttachments
+          ? { orderBy: { createdAt: "desc" }, take: 3 }
+          : false,
+      },
+    });
     if (!checkup) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
@@ -49,7 +59,38 @@ export async function GET(
       });
     }
 
-    const deepseek = await generateDeepSeekAdvice(config, answers);
+    const attachmentSummary =
+      includeAttachments && checkup.attachments.length > 0
+        ? truncateForPrompt(
+            checkup.attachments
+              .map((a, idx) => {
+                const head = `附件${idx + 1}：${a.fileName}`;
+                if (a.extractedText?.trim()) {
+                  return `${head}\n${truncateForPrompt(a.extractedText.trim(), 2200)}`;
+                }
+                if (a.extractError) {
+                  return `${head}\n（解析失败：${a.extractError}）`;
+                }
+                return `${head}\n（未提取到有效文本）`;
+              })
+              .join("\n\n"),
+            6000
+          )
+        : null;
+    const attachmentInputs =
+      includeAttachments && checkup.attachments.length > 0
+        ? checkup.attachments.map((a) => ({
+            id: a.id,
+            fileName: a.fileName,
+            extractedChars: (a.extractedText ?? "").trim().length,
+            includedInPrompt: Boolean(a.extractedText?.trim()),
+            extractError: a.extractError ?? null,
+          }))
+        : [];
+
+    const deepseek = await generateDeepSeekAdvice(config, answers, {
+      attachmentSummary,
+    });
 
     return NextResponse.json({
       riskLevel: advice.riskLevel,
@@ -62,6 +103,8 @@ export async function GET(
         usedDeepseek: Boolean(deepseek.text),
         deepseekError: deepseek.error ?? null,
         deepseekHttpStatus: deepseek.httpStatus ?? null,
+        attachmentsUsed: Boolean(attachmentSummary),
+        attachmentInputs,
       },
     });
   } catch (e) {
