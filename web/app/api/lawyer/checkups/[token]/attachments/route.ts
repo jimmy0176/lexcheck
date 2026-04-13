@@ -1,4 +1,5 @@
 import path from "node:path";
+import { unlink } from "node:fs/promises";
 import { NextResponse } from "next/server";
 import {
   MAX_ATTACHMENT_FILES,
@@ -105,6 +106,40 @@ export async function POST(
     }
 
     return NextResponse.json({ ok: true, attachments: saved });
+  } catch (e) {
+    return NextResponse.json(
+      { error: "server_error", message: String(e) },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  const { token } = await params;
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const checkup = await prisma.checkup.findUnique({
+      where: { token },
+      include: { attachments: true },
+    });
+    if (!checkup) {
+      return NextResponse.json({ error: "not_found" }, { status: 404 });
+    }
+
+    const targets = checkup.attachments.map((a) => a.storagePath).filter(Boolean);
+    await prisma.checkupAttachment.deleteMany({ where: { checkupId: checkup.id } });
+    for (const p of targets) {
+      try {
+        await unlink(p);
+      } catch {
+        // ignore missing/deleted file errors
+      }
+    }
+
+    return NextResponse.json({ ok: true, deletedCount: targets.length });
   } catch (e) {
     return NextResponse.json(
       { error: "server_error", message: String(e) },

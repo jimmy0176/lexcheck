@@ -108,6 +108,26 @@ export function LawyerUploadPanel({ token }: { token: string }) {
     }
   }
 
+  async function clearAll() {
+    if (uploading) return;
+    setErr(null);
+    setFiles([]);
+    if (existing.length === 0) return;
+    try {
+      const res = await fetch(`/api/lawyer/checkups/${token}/attachments`, {
+        method: "DELETE",
+      });
+      const json = (await res.json()) as { message?: string };
+      if (!res.ok) {
+        setErr(json.message ?? `清空失败（${res.status}）`);
+        return;
+      }
+      setExisting([]);
+    } catch (e) {
+      setErr(String(e));
+    }
+  }
+
   return (
     <Card className="p-4">
       <div className="text-base font-semibold">补充材料上传</div>
@@ -210,8 +230,8 @@ export function LawyerUploadPanel({ token }: { token: string }) {
           type="button"
           size="sm"
           variant="ghost"
-          onClick={() => setFiles([])}
-          disabled={files.length === 0}
+          onClick={() => void clearAll()}
+          disabled={uploading || (files.length === 0 && existing.length === 0)}
         >
           清空
         </Button>
