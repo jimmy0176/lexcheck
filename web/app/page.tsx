@@ -16,7 +16,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild>
-              <Link href="/q/demo">进入企业法律体检（Demo）</Link>
+              <Link href="/q">进入企业法律体检</Link>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/lawyer/checkups">律师工作台</Link>
@@ -39,7 +39,7 @@ export default function Home() {
                   多章节问卷、进度跟踪、服务端保存与提交；律师端可查看答卷与 AI 辅助意见。
                 </p>
                 <Button className="mt-6 w-full sm:w-auto" asChild variant="secondary">
-                  <Link href="/q/demo">打开应用</Link>
+                  <Link href="/q">打开应用</Link>
                 </Button>
               </Card>
             </li>
