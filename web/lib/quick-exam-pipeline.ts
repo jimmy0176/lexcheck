@@ -455,37 +455,13 @@ export async function stepQuickExamJob(opts: {
           where: { id: jobId },
           data: { progressJson: progress as object, status: "running" },
         });
-
-        const { reportText, llmHttpCalls: fh } = await generateFinalReportText({
-          base: b,
-          apiKey,
-          model,
-          promptMd,
-          outputMd,
-          preliminaryBlock: narrativeBlock,
-          narrative,
-        });
-
-        progress = {
-          ...progress,
-          stage: "done",
-          llmHttpCallsFinal: (progress.llmHttpCallsFinal ?? 0) + fh,
-        };
-        await prisma.quickExamReportJob.update({
-          where: { id: jobId },
-          data: {
-            status: "success",
-            reportText,
-            progressJson: progress as object,
-          },
-        });
-
+        // 终稿在下一轮 step 中执行，避免与最后一批分块摘要同一次 HTTP 请求内串行，
+        // 否则易超过反向代理默认 60s 读超时。
         return {
-          done: true,
-          reportText,
+          done: false,
           progress,
-          status: "success",
-          runStats: runStatsFromProgress(progress, "success"),
+          status: "running",
+          runStats: runStatsFromProgress(progress, "running"),
         };
       }
 

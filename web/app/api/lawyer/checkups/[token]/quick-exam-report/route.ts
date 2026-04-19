@@ -12,6 +12,8 @@ import { loadPreliminaryAttachmentBodies } from "@/lib/quick-exam-preliminary";
 import { getProviderById } from "@/lib/llm-providers";
 
 export const runtime = "nodejs";
+/** Vercel 等平台上的路由最长执行时间；自建 Node 仍需调大 Nginx/网关超时。 */
+export const maxDuration = 300;
 
 function normalizeBase(url: string) {
   return url.trim().replace(/\/+$/, "");
