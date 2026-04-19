@@ -110,11 +110,11 @@ export function AnswerSectionsClient({
             if (mode === "risk-only" && questions.length === 0) return null;
             return (
               <section key={section.sectionId} className="space-y-2">
-                <h3 className="text-base font-semibold">{section.title}</h3>
+                <h3 className="text-sm font-semibold">{section.title}</h3>
                 <div className="space-y-2">
                   {questions.map((q) => (
                     <div key={q.qid} className="text-sm">
-                      <div className="text-base font-medium leading-6">
+                      <div className="text-sm font-medium leading-6">
                         <span className="mr-2 text-muted-foreground">{q.qid}</span>
                         {q.question}
                       </div>

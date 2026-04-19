@@ -1,29 +1,64 @@
+"use client";
+
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { usePathname } from "next/navigation";
 
 export function SiteHeader() {
+  const pathname = usePathname();
+  const hideMarketingNav = pathname.startsWith("/lawyer/checkups");
+
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-6">
-        <div className="flex min-w-0 items-center gap-4 sm:gap-6">
-          <Link href="/" className="shrink-0 text-sm font-semibold tracking-tight">
-            Lexcheck
+    <header className="sticky top-0 z-50 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/55">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-6">
+        <div className="flex min-w-0 items-center gap-6 sm:gap-10">
+          <Link
+            href="/"
+            className="shrink-0 font-heading text-xl font-semibold leading-none tracking-[0.06em] text-foreground sm:text-2xl"
+          >
+            HE Partners
           </Link>
-          <nav className="hidden items-center gap-1 text-sm text-muted-foreground sm:flex">
-            <span className="font-medium text-foreground">应用中心</span>
-            <span className="text-muted-foreground/40">·</span>
-            <Link href="/#apps" className="hover:text-foreground">
-              应用列表
-            </Link>
-          </nav>
+          {!hideMarketingNav ? (
+            <nav className="hidden items-center gap-5 sm:flex">
+              <Link
+                href="/#about"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                关于
+              </Link>
+              <Link
+                href="/#team"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                团队
+              </Link>
+              <Link
+                href="/#apps"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                应用
+              </Link>
+              <Link
+                href="/#scenarios"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                资源
+              </Link>
+              <Link
+                href="/#contact"
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                联系我们
+              </Link>
+            </nav>
+          ) : null}
         </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/login/user">用户登录</Link>
-          </Button>
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/login/lawyer">律师登录</Link>
-          </Button>
+        <div className="flex shrink-0 items-center gap-4 sm:gap-5">
+          <Link
+            href="/lawyer/checkups"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            工作台
+          </Link>
         </div>
       </div>
     </header>

@@ -160,7 +160,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
   return (
     <Card id="ai-opinion" className="scroll-mt-24 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="text-base font-semibold">AI意见（DeepSeek）</div>
+        <div className="text-sm font-semibold">AI意见（DeepSeek）</div>
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
@@ -196,10 +196,10 @@ export function LawyerAiPanel({ token }: { token: string }) {
       )}
 
       {rulesLoading && !data && (
-        <div className="mt-3 text-sm text-muted-foreground">加载规则摘要…</div>
+        <div className="mt-3 text-xs text-muted-foreground">加载规则摘要…</div>
       )}
       <div className="mt-3">
-        <div className="mb-1 text-sm font-medium">补充要求（可选）</div>
+        <div className="mb-1 text-xs font-medium">补充要求（可选）</div>
         <Textarea
           value={customRequirement}
           onChange={(e) => setCustomRequirement(e.target.value)}
@@ -210,12 +210,12 @@ export function LawyerAiPanel({ token }: { token: string }) {
       </div>
 
       {err && (
-        <div className="mt-3 text-sm text-destructive">
+        <div className="mt-3 text-xs text-destructive">
           加载失败：{err}。请检查网络或稍后重试。
         </div>
       )}
       {aiLoading && (
-        <div className="mt-3 rounded-md border bg-muted/20 p-2 text-sm text-muted-foreground">
+        <div className="mt-3 rounded-md border bg-muted/20 p-2 text-xs text-muted-foreground">
           <div>分析已用时：{aiElapsedSec}s</div>
           <div className="mt-1">{aiProgressText}</div>
         </div>
@@ -224,9 +224,9 @@ export function LawyerAiPanel({ token }: { token: string }) {
       {data && (
         <>
           <div className="mt-2">
-            <div className="text-sm font-medium">本次材料读取情况</div>
+            <div className="text-xs font-medium">本次材料读取情况</div>
             {data.meta?.attachmentInputs && data.meta.attachmentInputs.length > 0 ? (
-              <ul className="mt-1 space-y-1 text-sm">
+              <ul className="mt-1 space-y-1 text-xs">
                 {data.meta.attachmentInputs.map((item) => (
                   <li key={item.id} className="text-muted-foreground">
                     {item.fileName} · 提取 {item.extractedChars} 字
@@ -236,7 +236,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
                 ))}
               </ul>
             ) : (
-              <div className="mt-1 text-sm text-muted-foreground">本次未读取到补充材料。</div>
+              <div className="mt-1 text-xs text-muted-foreground">本次未读取到补充材料。</div>
             )}
           </div>
           {data.meta?.deepseekConfigured &&
@@ -250,7 +250,7 @@ export function LawyerAiPanel({ token }: { token: string }) {
               </div>
             )}
           <div
-            className="mt-2 rounded-lg border bg-muted/20 p-3 text-sm whitespace-pre-wrap"
+            className="mt-2 rounded-lg border bg-muted/20 p-3 text-xs whitespace-pre-wrap"
             aria-live="polite"
           >
             {mainOpinionText}

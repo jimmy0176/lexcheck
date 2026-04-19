@@ -6,20 +6,38 @@ import {
   saveUploadFile,
   validateUploadFile,
 } from "@/lib/checkup-attachments";
-import { extractAttachmentText } from "@/lib/extract-attachment-text";
 
 export const runtime = "nodejs";
 
+type AttachmentKind = "preliminary" | "detailed";
+
+function parseKindParam(v: string | null): AttachmentKind | null {
+  if (v === "preliminary" || v === "detailed") return v;
+  return null;
+}
+
+function parseKindForm(v: FormDataEntryValue | null): AttachmentKind {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (s === "preliminary") return "preliminary";
+  return "detailed";
+}
+
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
   try {
+    const kindFilter = parseKindParam(new URL(req.url).searchParams.get("kind"));
     const { prisma } = await import("@/lib/prisma");
     const checkup = await prisma.checkup.findUnique({
       where: { token },
-      include: { attachments: { orderBy: { createdAt: "desc" } } },
+      include: {
+        attachments: {
+          where: kindFilter ? { kind: kindFilter } : undefined,
+          orderBy: { createdAt: "desc" },
+        },
+      },
     });
     if (!checkup) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
@@ -27,10 +45,12 @@ export async function GET(
     return NextResponse.json({
       attachments: checkup.attachments.map((a) => ({
         id: a.id,
+        kind: a.kind,
         fileName: a.fileName,
         mimeType: a.mimeType,
         sizeBytes: a.sizeBytes,
         createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
         hasExtractedText: Boolean(a.extractedText),
         extractError: a.extractError,
       })),
@@ -74,27 +94,22 @@ export async function POST(
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
+    const attachmentKind = parseKindForm(form.get("attachmentKind"));
+
     const saved = [];
     for (const file of uploaded) {
       const { storagePath, ext } = await saveUploadFile(token, file);
-      let extractedText: string | null = null;
-      let extractError: string | null = null;
-      try {
-        extractedText = await extractAttachmentText(storagePath);
-      } catch (e) {
-        extractError = String(e);
-      }
-
       const created = await prisma.checkupAttachment.create({
         data: {
           checkupId: checkup.id,
+          kind: attachmentKind,
           fileName: file.name,
           fileExt: ext,
           mimeType: file.type || "application/octet-stream",
           sizeBytes: file.size,
           storagePath: path.normalize(storagePath),
-          extractedText,
-          extractError,
+          extractedText: null,
+          extractError: null,
         },
       });
       saved.push({
@@ -115,22 +130,29 @@ export async function POST(
 }
 
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
   try {
+    const kindFilter = parseKindParam(new URL(req.url).searchParams.get("kind"));
     const { prisma } = await import("@/lib/prisma");
     const checkup = await prisma.checkup.findUnique({
       where: { token },
-      include: { attachments: true },
+      include: {
+        attachments: {
+          where: kindFilter ? { kind: kindFilter } : undefined,
+        },
+      },
     });
     if (!checkup) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
 
     const targets = checkup.attachments.map((a) => a.storagePath).filter(Boolean);
-    await prisma.checkupAttachment.deleteMany({ where: { checkupId: checkup.id } });
+    await prisma.checkupAttachment.deleteMany({
+      where: { checkupId: checkup.id, ...(kindFilter ? { kind: kindFilter } : {}) },
+    });
     for (const p of targets) {
       try {
         await unlink(p);

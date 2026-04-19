@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { SiteHeader } from "@/components/site-header";
+import { Cormorant_Garamond, Geist_Mono, Manrope } from "next/font/google";
+import { AppChrome } from "@/components/app-chrome";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const bodySans = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
+const displaySerif = Cormorant_Garamond({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -14,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Lexcheck — 企业法律合规体检",
+  title: "HE Partners — 企业法律合规体检",
   description: "企业法律顾问体检问卷与律师工作台",
 };
 
@@ -26,11 +33,10 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${bodySans.variable} ${displaySerif.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">
-        <SiteHeader />
-        <div className="flex-1">{children}</div>
+      <body className="flex min-h-full flex-col font-sans">
+        <AppChrome>{children}</AppChrome>
       </body>
     </html>
   );

@@ -43,15 +43,15 @@ export function RiskSectionSummaryPanel({
 
   return (
     <Card className="p-4">
-      <div className="text-base font-semibold">问卷简要分析</div>
-      <div className="mt-1 text-sm text-muted-foreground">
+      <div className="text-sm font-semibold">问卷简要分析</div>
+      <div className="mt-1 text-xs text-muted-foreground">
         各模块风险项统计（按非首选项/其他项判定）
       </div>
       <div className="mt-3 space-y-2">
         {rows.map((row) => (
           <div
             key={row.sectionId}
-            className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+            className="flex items-center justify-between rounded-md border px-3 py-2 text-xs"
           >
             <span className="truncate pr-3">{row.title}</span>
             <span className="shrink-0 tabular-nums text-muted-foreground">
@@ -60,7 +60,7 @@ export function RiskSectionSummaryPanel({
           </div>
         ))}
       </div>
-      <div className="mt-3 text-sm font-medium">
+      <div className="mt-3 text-xs font-medium">
         总风险项：<span className="tabular-nums">{totalRisk}</span>
       </div>
     </Card>

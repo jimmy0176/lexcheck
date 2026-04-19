@@ -33,7 +33,11 @@ export async function GET(
       where: { token },
       include: {
         attachments: includeAttachments
-          ? { orderBy: { createdAt: "desc" }, take: 3 }
+          ? {
+              where: { kind: "detailed" },
+              orderBy: { createdAt: "desc" },
+              take: 3,
+            }
           : false,
       },
     });

@@ -17,6 +17,18 @@ enum CheckupStatus {
   submitted
 }
 
+enum CheckupAttachmentKind {
+  preliminary
+  detailed
+}
+
+enum QuickExamJobStatus {
+  pending
+  running
+  success
+  failed
+}
+
 model Checkup {
   id          String            @id @default(cuid())
   token       String            @unique
@@ -28,12 +40,31 @@ model Checkup {
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   attachments CheckupAttachment[]
+  workspace   CheckupWorkspace?
+  quickExamJobs QuickExamReportJob[]
+}
+
+model QuickExamReportJob {
+  id          String             @id @default(cuid())
+  checkupId   String
+  checkup     Checkup            @relation(fields: [checkupId], references: [id], onDelete: Cascade)
+  status      QuickExamJobStatus @default(pending)
+  /** sync_full | async_chunk */
+  mode        String             @default("async_chunk")
+  progressJson Json              @default("{}")
+  reportText  String?
+  errorMessage String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([checkupId, createdAt])
 }
 
 model CheckupAttachment {
   id           String   @id @default(cuid())
   checkupId    String
   checkup      Checkup  @relation(fields: [checkupId], references: [id], onDelete: Cascade)
+  kind         CheckupAttachmentKind @default(detailed)
   fileName     String
   fileExt      String?
   mimeType     String
@@ -45,4 +76,47 @@ model CheckupAttachment {
   updatedAt    DateTime @updatedAt
 
   @@index([checkupId, createdAt])
+  @@index([checkupId, kind, createdAt])
+}
+
+model CheckupWorkspace {
+  id             String              @id @default(cuid())
+  checkupId      String              @unique
+  checkup        Checkup             @relation(fields: [checkupId], references: [id], onDelete: Cascade)
+  projectStatus  String              @default("待处理")
+  ownerName      String?
+  promptTemplate String?
+  reportTemplate String?
+  progressJson   Json                @default("{}")
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  sectionDrafts  CheckupSectionDraft[]
+  finalReport    CheckupFinalReport?
+}
+
+model CheckupSectionDraft {
+  id          String          @id @default(cuid())
+  workspaceId String
+  workspace   CheckupWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  sectionKey  String
+  sectionName String
+  draftText   String
+  reviewedText String?
+  included    Boolean         @default(true)
+  sourceMeta  Json?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([workspaceId, sectionKey])
+  @@index([workspaceId, updatedAt])
+}
+
+model CheckupFinalReport {
+  id             String          @id @default(cuid())
+  workspaceId    String          @unique
+  workspace      CheckupWorkspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  reportText     String
+  notesText      String?
+  generatedAt    DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
