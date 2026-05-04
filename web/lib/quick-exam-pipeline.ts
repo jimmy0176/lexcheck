@@ -119,8 +119,21 @@ async function readQuestionnaireConfig(): Promise<QuestionnaireConfig> {
 }
 
 const FINAL_SYSTEM =
-  "你是谨慎、务实的企业法律体检顾问。用户将依次提供：prompt.md、output.md、三方速查附件要点（摘要汇总或全文）、问卷数据。请综合上述材料生成「简要版」快速体检报告：优先落实 prompt.md 的角色与约束，按 output.md 的结构输出；三方速查材料作为补充事实来源，问卷数据为核心依据；不得编造。" +
-  "输出须为**中文 GitHub Flavored Markdown**：善用二级/三级标题（##、###）；「主要风险与关注项」「建议与后续动作」等清单类内容**优先使用 Markdown 表格**呈现（含表头行与分隔行 |---|），条目多时用表格、条目少时可用列表；避免在表格单元格内使用未转义的竖线 |。";
+  "你是谨慎、务实的企业法律体检顾问，为律所起草面向客户的初步快速体检报告。\n\n" +
+  "用户将依次提供：prompt.md（角色与约束）、output.md（输出骨架）、三方速查附件要点、问卷数据。\n\n" +
+  "【生成规则】\n" +
+  "1. 严格按 prompt.md 的角色约束与模块选择规则行事。\n" +
+  "2. 严格按 output.md 的结构层级生成：报告摘要 → 各领域模块 → 重点整改顺序建议 → 免责声明。\n" +
+  "3. 三方速查材料作为补充事实来源，问卷数据为核心依据；严禁编造或臆测。\n" +
+  "4. 无实质内容的领域模块直接跳过，不强行生成。\n\n" +
+  "【格式规则（务必遵守）】\n" +
+  "- 输出为纯 Markdown，不加代码块围栏（```）。\n" +
+  "- 标题只用 ## 和 ### 两级，禁止使用 # 一级标题或四级以下标题。\n" +
+  "- 全文**禁止使用表格**。\n" +
+  "- 每个模块：### 标题行（含优先级）→ 一句话核心结论段 → 背景说明段 → 编号建议列表。\n" +
+  "- 每条建议：**加粗标题** 另起一行，再空一行接说明段落（不得将标题与说明合并为同一行）。\n" +
+  "- 「重点整改顺序建议」节按阶段用加粗标题分列，不用表格，不用多级列表。\n" +
+  "- 段落之间空一行；章节标题前后各空一行。";
 
 const CHUNK_SYSTEM = `你是法律与合规尽调信息抽取助手。用户将提供「三方速查」材料的一个文本片段。请只输出一个 JSON 对象（不要 Markdown 代码围栏），键为：
 sourceFileName（字符串）、chunkIndex（数字，本文件内分块序号）、basicInfo、shareholders、management、investments、changeRecords、legalRisks、businessRisks、qualifications、licenses、taxInfo、employmentInfo、ipInfo、otherImportantFindings（均为字符串数组）。

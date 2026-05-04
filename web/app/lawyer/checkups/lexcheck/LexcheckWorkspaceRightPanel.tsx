@@ -19,6 +19,7 @@ import { DD_REPORT_SECTIONS } from "@/lib/dd-report-toc";
 import {
   getDdSegmentDefaultTemplate,
   LEXCHECK_QUICK_EXAM_SECTION_KEY,
+  QUICK_EXAM_TEMPLATE_VERSION,
 } from "@/lib/dd-segment-default-templates";
 import { getProviderById } from "@/lib/llm-providers";
 import type { QuickExamRunStats } from "@/lib/quick-exam-pipeline";
@@ -121,11 +122,17 @@ function ensureQuickExamTemplateSeeded(token: string) {
   const sectionKey = LEXCHECK_QUICK_EXAM_SECTION_KEY;
   const pk = segmentPromptStorageKey(token, sectionKey);
   const ok = segmentOutputStorageKey(token, sectionKey);
-  if ((localStorage.getItem(pk) ?? "").trim() || (localStorage.getItem(ok) ?? "").trim()) return;
+  const vk = `lexcheck:dd-segment:${token}:${sectionKey}:version`;
+  const storedVersion = localStorage.getItem(vk) ?? "";
+  const alreadySeeded =
+    storedVersion === QUICK_EXAM_TEMPLATE_VERSION &&
+    (localStorage.getItem(pk) ?? "").trim() !== "";
+  if (alreadySeeded) return;
   const d = getDdSegmentDefaultTemplate(sectionKey);
   if (!d) return;
   localStorage.setItem(pk, d.prompt);
   localStorage.setItem(ok, d.outputFull);
+  localStorage.setItem(vk, QUICK_EXAM_TEMPLATE_VERSION);
 }
 
 function readSegmentCustomRequirement(token: string, sectionKey: string): string {

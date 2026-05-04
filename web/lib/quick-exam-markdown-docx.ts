@@ -23,6 +23,9 @@ import {
   TextRun,
   HeadingLevel,
   WidthType,
+  BorderStyle,
+  ShadingType,
+  AlignmentType,
 } from "docx";
 
 export type QuickExamDocxBuildStats = {
@@ -57,15 +60,16 @@ function phrasingToPlain(nodes: readonly PhrasingContent[]): string {
   return parts.join("");
 }
 
-function phrasingToRuns(nodes: readonly PhrasingContent[]): TextRun[] {
+function phrasingToRuns(nodes: readonly PhrasingContent[], forceBold = false, color?: string): TextRun[] {
   const runs: TextRun[] = [];
   const walk = (list: readonly PhrasingContent[], bold: boolean, italics: boolean) => {
     for (const n of list) {
       if (n.type === "text") {
         const opts: IRunOptions = {
           text: n.value,
-          ...(bold ? { bold: true } : {}),
+          ...(bold || forceBold ? { bold: true } : {}),
           ...(italics ? { italics: true } : {}),
+          ...(color ? { color } : {}),
         };
         runs.push(new TextRun(opts));
       } else if (n.type === "strong") {
@@ -73,7 +77,7 @@ function phrasingToRuns(nodes: readonly PhrasingContent[]): TextRun[] {
       } else if (n.type === "emphasis") {
         walk(n.children as PhrasingContent[], bold, true);
       } else if (n.type === "inlineCode") {
-        runs.push(new TextRun({ text: n.value, font: "Consolas" }));
+        runs.push(new TextRun({ text: n.value, font: "Consolas", ...(forceBold ? { bold: true } : {}), ...(color ? { color } : {}) }));
       } else if (n.type === "break") {
         runs.push(new TextRun({ text: "\n" }));
       } else if (n.type === "link") {
@@ -84,7 +88,7 @@ function phrasingToRuns(nodes: readonly PhrasingContent[]): TextRun[] {
     }
   };
   walk(nodes, false, false);
-  return runs.length > 0 ? runs : [new TextRun({ text: " " })];
+  return runs.length > 0 ? runs : [new TextRun({ text: " ", ...(forceBold ? { bold: true } : {}), ...(color ? { color } : {}) })];
 }
 
 function mdParagraphToDocx(p: MdParagraph): DocxParagraph {
@@ -126,11 +130,19 @@ function mdListToDocx(list: List, depth: number, stats: TableStats): (DocxParagr
   let index = 1;
   for (const item of list.children) {
     const li = item as ListItem;
-    const prefix = list.ordered ? `${index++}. ` : "• ";
+    const isOrdered = list.ordered;
+    const prefix = isOrdered ? `${index++}. ` : "• ";
     const first = li.children[0] as Content | undefined;
     if (first && first.type === "paragraph") {
-      const runs = phrasingToRuns((first as MdParagraph).children as PhrasingContent[]);
-      runs.unshift(new TextRun({ text: "  ".repeat(depth) + prefix }));
+      let runs: TextRun[];
+      if (isOrdered) {
+        const numRun = new TextRun({ text: "  ".repeat(depth) + prefix, color: "B8982A" });
+        const contentRuns = phrasingToRuns((first as MdParagraph).children as PhrasingContent[], false, "1A2E4A");
+        runs = [numRun, ...contentRuns];
+      } else {
+        runs = phrasingToRuns((first as MdParagraph).children as PhrasingContent[]);
+        runs.unshift(new TextRun({ text: "  ".repeat(depth) + prefix }));
+      }
       out.push(new DocxParagraph({ children: runs }));
       for (let i = 1; i < li.children.length; i++) {
         const sub = li.children[i];
@@ -147,22 +159,54 @@ function mdListToDocx(list: List, depth: number, stats: TableStats): (DocxParagr
   return out;
 }
 
-/** 单元格内仅展开 paragraph，与常见 GFM 表一致；其它块类型略过以免嵌套表破坏版式 */
-function tableCellToDocx(cell: MdTableCell): TableCell {
+const TABLE_BORDER = { style: BorderStyle.SINGLE, size: 4, color: "AAAAAA" };
+const TABLE_BORDERS = {
+  top: TABLE_BORDER,
+  bottom: TABLE_BORDER,
+  left: TABLE_BORDER,
+  right: TABLE_BORDER,
+  insideHorizontal: TABLE_BORDER,
+  insideVertical: TABLE_BORDER,
+};
+
+type GfmAlign = "left" | "center" | "right" | null;
+
+function gfmAlignToDocx(a: GfmAlign): (typeof AlignmentType)[keyof typeof AlignmentType] {
+  if (a === "center") return AlignmentType.CENTER;
+  if (a === "right") return AlignmentType.RIGHT;
+  return AlignmentType.LEFT;
+}
+
+function tableCellToDocx(cell: MdTableCell, isHeader: boolean, align: GfmAlign): TableCell {
   const paragraphs: DocxParagraph[] = [];
-  const cellBlocks = cell.children as unknown as readonly Content[];
-  for (const c of cellBlocks) {
+  for (const c of cell.children as unknown as readonly Content[]) {
     if (c.type === "paragraph") {
-      paragraphs.push(mdParagraphToDocx(c as MdParagraph));
+      paragraphs.push(
+        new DocxParagraph({
+          alignment: gfmAlignToDocx(align),
+          children: phrasingToRuns((c as MdParagraph).children as PhrasingContent[], isHeader),
+        })
+      );
     }
   }
   if (paragraphs.length === 0) {
-    paragraphs.push(new DocxParagraph({ children: [new TextRun({ text: " " })] }));
+    paragraphs.push(
+      new DocxParagraph({
+        alignment: gfmAlignToDocx(align),
+        children: [new TextRun({ text: " ", bold: isHeader })],
+      })
+    );
   }
-  return new TableCell({ children: paragraphs });
+  return new TableCell({
+    children: paragraphs,
+    shading: isHeader ? { type: ShadingType.SOLID, color: "D9D9D9", fill: "D9D9D9" } : undefined,
+    margins: { top: 80, bottom: 80, left: 120, right: 120 },
+  });
 }
 
 function mdTableToDocx(table: MdTable): { table: DocxTable; rowCount: number } {
+  const aligns: GfmAlign[] = (table.align ?? []) as GfmAlign[];
+
   if (table.children.length === 0) {
     const row = new TableRow({
       children: [
@@ -175,19 +219,25 @@ function mdTableToDocx(table: MdTable): { table: DocxTable; rowCount: number } {
       table: new DocxTable({
         rows: [row],
         width: { size: 100, type: WidthType.PERCENTAGE },
+        borders: TABLE_BORDERS,
       }),
       rowCount: 1,
     };
   }
-  const fixedRows = table.children.map(
-    (row) =>
-      new TableRow({
-        children: row.children.map((cell) => tableCellToDocx(cell as MdTableCell)),
-      })
+
+  const fixedRows = table.children.map((row, rowIdx) =>
+    new TableRow({
+      tableHeader: rowIdx === 0,
+      children: row.children.map((cell, colIdx) =>
+        tableCellToDocx(cell as MdTableCell, rowIdx === 0, aligns[colIdx] ?? null)
+      ),
+    })
   );
+
   const t = new DocxTable({
     rows: fixedRows,
     width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: TABLE_BORDERS,
   });
   return { table: t, rowCount: fixedRows.length };
 }
