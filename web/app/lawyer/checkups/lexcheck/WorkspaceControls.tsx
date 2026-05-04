@@ -81,10 +81,6 @@ export function QuestionnairePickerButton({
   const [open, setOpen] = useState(autoOpen);
   const [keyword, setKeyword] = useState("");
 
-  useEffect(() => {
-    if (autoOpen) setOpen(true);
-  }, [autoOpen]);
-
   const filtered = useMemo(() => {
     const q = keyword.trim().toLowerCase();
     if (!q) return checkups;

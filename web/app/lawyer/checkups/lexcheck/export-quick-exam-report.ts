@@ -58,6 +58,15 @@ function safeBaseName(raw: string) {
   return t || "快速体检报告";
 }
 
+function timeSuffix() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `_${mm}-${dd}_${hh}-${min}`;
+}
+
 export function downloadQuickExamMarkdown(text: string, baseName: string) {
   const blob = new Blob([text], { type: "text/markdown;charset=utf-8" });
   triggerDownload(blob, `${safeBaseName(baseName)}.md`);
@@ -119,7 +128,7 @@ export async function downloadQuickExamDocx(text: string, baseName: string) {
     ],
   });
   const blob = await Packer.toBlob(doc);
-  triggerDownload(blob, `${safeBaseName(baseName)}.docx`);
+  triggerDownload(blob, `${safeBaseName(baseName)}${timeSuffix()}.docx`);
 }
 
 /** 将报告区域截图为多页 PDF（支持中文显示） */
