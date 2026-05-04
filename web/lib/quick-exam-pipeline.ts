@@ -282,6 +282,10 @@ export async function runQuickExamSync(opts: {
     phase: "completed",
   });
 
+  await prisma.quickExamReportJob.create({
+    data: { checkupId: checkup.id, status: "success", mode: "sync_full", progressJson: {}, reportText },
+  });
+
   return { reportText, meta, runStats };
 }
 

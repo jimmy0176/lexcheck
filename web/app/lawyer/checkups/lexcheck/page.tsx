@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import type { Answers, QuestionnaireConfig } from "@/lib/questionnaire-types";
 import { normalizeProgress } from "@/lib/checkup-workflow";
-import { LawyerUploadPanel } from "../[token]/LawyerUploadPanel";
+import { LexcheckMiddleColumn } from "./LexcheckMiddleColumn";
 import { LexcheckWorkspaceRightPanel } from "./LexcheckWorkspaceRightPanel";
 import { ProjectProgressPanel } from "./ProjectProgressPanel";
 import { QuestionnairePickerButton, WorkspaceSettingsButtons } from "./WorkspaceControls";
@@ -240,37 +240,20 @@ export default async function LawyerLexcheckPage({
 
               <div className="space-y-4" id="file-management">
                 {selected ? (
-                  <>
-                    <LawyerUploadPanel
-                      token={selected.token}
-                      title="三方速查"
-                      attachmentKind="preliminary"
-                    />
-                    <LawyerUploadPanel
-                      token={selected.token}
-                      title="详细资料"
-                      attachmentKind="detailed"
-                    />
-                  </>
+                  <LexcheckMiddleColumn
+                    token={selected.token}
+                    sectionDrafts={
+                      selected.workspace?.sectionDrafts.map((d) => ({
+                        id: d.id,
+                        sectionName: d.sectionName,
+                        updatedAt: d.updatedAt.toISOString(),
+                      })) ?? []
+                    }
+                    companyName={selected.companyName}
+                  />
                 ) : (
                   <Card className="p-4 text-sm text-muted-foreground">请先选择问卷后上传文件。</Card>
                 )}
-
-                <Card className="p-4">
-                  <div className="text-sm font-semibold">中间文件管理</div>
-                  <div className="mt-3 space-y-2 text-xs text-muted-foreground">
-                    {selected?.workspace?.sectionDrafts.length ? (
-                      selected.workspace.sectionDrafts.slice(0, 8).map((draft) => (
-                        <div key={draft.id} className="rounded-md border px-3 py-2">
-                          <div className="font-medium text-foreground">{draft.sectionName}</div>
-                          <div className="mt-1">更新：{draft.updatedAt.toLocaleString()}</div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-md border px-3 py-2">暂无分部草稿，先在右侧生成。</div>
-                    )}
-                  </div>
-                </Card>
               </div>
 
               <div className="min-w-0 space-y-4" id="workflow-detail">

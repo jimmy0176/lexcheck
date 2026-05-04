@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Download, FolderCog, Loader2, Trash2 } from "lucide-react";
+import { ChevronRight, Download, FolderCog, Loader2, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -24,10 +24,14 @@ export function LawyerUploadPanel({
   token,
   title,
   attachmentKind = "detailed",
+  collapsible = false,
+  defaultOpen = true,
 }: {
   token: string;
   title: string;
   attachmentKind?: LawyerUploadAttachmentKind;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
 }) {
   const [files, setFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -37,6 +41,7 @@ export function LawyerUploadPanel({
   const [manageOpen, setManageOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [bodyOpen, setBodyOpen] = useState(defaultOpen);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   function mergeFiles(base: File[], nextFiles: File[]) {
@@ -160,7 +165,20 @@ export function LawyerUploadPanel({
   return (
     <Card className="p-4">
       <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-semibold">{title}</div>
+        {collapsible ? (
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-sm font-semibold"
+            onClick={() => setBodyOpen((o) => !o)}
+          >
+            <ChevronRight
+              className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${bodyOpen ? "rotate-90" : ""}`}
+            />
+            <span>{title}</span>
+          </button>
+        ) : (
+          <div className="text-sm font-semibold">{title}</div>
+        )}
         <button
           type="button"
           title="已上传文件管理"
@@ -171,70 +189,74 @@ export function LawyerUploadPanel({
         </button>
       </div>
 
-      <div
-        className={`mt-2 cursor-pointer rounded-lg border border-dashed px-3 py-3 text-center text-xs text-muted-foreground transition sm:text-sm ${
-          dragActive ? "border-primary bg-primary/5" : "hover:bg-muted/30"
-        }`}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragActive(true);
-        }}
-        onDragLeave={(e) => {
-          e.preventDefault();
-          setDragActive(false);
-        }}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragActive(false);
-          const dropped = Array.from(e.dataTransfer.files ?? []);
-          if (dropped.length > 0) {
-            setFiles((prev) => mergeFiles(prev, dropped));
-            void uploadNow(dropped);
-          }
-        }}
-      >
-        {dragActive ? "松开以上传" : "点击或拖入文件"}
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            const selected = Array.from(e.target.files ?? []);
-            if (selected.length === 0) return;
-            setFiles((prev) => mergeFiles(prev, selected));
-            void uploadNow(selected);
-          }}
-        />
-      </div>
+      {(!collapsible || bodyOpen) && (
+        <>
+          <div
+            className={`mt-2 cursor-pointer rounded-lg border border-dashed px-3 py-3 text-center text-xs text-muted-foreground transition sm:text-sm ${
+              dragActive ? "border-primary bg-primary/5" : "hover:bg-muted/30"
+            }`}
+            onClick={() => inputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragActive(true);
+            }}
+            onDragLeave={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragActive(false);
+              const dropped = Array.from(e.dataTransfer.files ?? []);
+              if (dropped.length > 0) {
+                setFiles((prev) => mergeFiles(prev, dropped));
+                void uploadNow(dropped);
+              }
+            }}
+          >
+            {dragActive ? "松开以上传" : "点击或拖入文件"}
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const selected = Array.from(e.target.files ?? []);
+                if (selected.length === 0) return;
+                setFiles((prev) => mergeFiles(prev, selected));
+                void uploadNow(selected);
+              }}
+            />
+          </div>
 
-      <ul className="mt-2 max-h-36 space-y-1 overflow-y-auto text-xs sm:text-sm">
-        {uploading && (
-          <li className="flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-            <span>正在上传…</span>
-          </li>
-        )}
-        {files.map((file) => (
-          <li key={`${file.name}-${file.size}`} className="truncate text-muted-foreground">
-            {file.name}
-          </li>
-        ))}
-        {existing.map((item) => (
-          <li key={item.id} className="flex min-w-0 items-center gap-1">
-            <span className="min-w-0 flex-1 truncate text-foreground">{item.fileName}</span>
-            {item.extractError ? (
-              <span className="shrink-0 text-[10px] text-amber-600">解析异常</span>
+          <ul className="mt-2 max-h-36 space-y-1 overflow-y-auto text-xs sm:text-sm">
+            {uploading && (
+              <li className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                <span>正在上传…</span>
+              </li>
+            )}
+            {files.map((file) => (
+              <li key={`${file.name}-${file.size}`} className="truncate text-muted-foreground">
+                {file.name}
+              </li>
+            ))}
+            {existing.map((item) => (
+              <li key={item.id} className="flex min-w-0 items-center gap-1">
+                <span className="min-w-0 flex-1 truncate text-foreground">{item.fileName}</span>
+                {item.extractError ? (
+                  <span className="shrink-0 text-[10px] text-amber-600">解析异常</span>
+                ) : null}
+              </li>
+            ))}
+            {!uploading && files.length === 0 && existing.length === 0 ? (
+              <li className="text-muted-foreground/80">暂无文件</li>
             ) : null}
-          </li>
-        ))}
-        {!uploading && files.length === 0 && existing.length === 0 ? (
-          <li className="text-muted-foreground/80">暂无文件</li>
-        ) : null}
-      </ul>
+          </ul>
 
-      {err && <div className="mt-2 text-xs text-destructive">{err}</div>}
+          {err && <div className="mt-2 text-xs text-destructive">{err}</div>}
+        </>
+      )}
 
       {manageOpen ? (
         <div

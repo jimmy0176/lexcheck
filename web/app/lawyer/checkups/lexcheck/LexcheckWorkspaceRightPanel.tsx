@@ -27,11 +27,7 @@ import type { Answers, QuestionnaireSection } from "@/lib/questionnaire-types";
 import { LawyerAiPanel } from "../[token]/LawyerAiPanel";
 import { QuestionnaireCompactText } from "./QuestionnaireCompactText";
 import { SegmentTemplateSettingsDialog } from "./SegmentTemplateSettingsDialog";
-import {
-  downloadQuickExamDocx,
-  downloadQuickExamMarkdown,
-  downloadQuickExamPdf,
-} from "./export-quick-exam-report";
+import { downloadQuickExamDocx } from "./export-quick-exam-report";
 import { QuickExamReportMarkdown } from "./QuickExamReportMarkdown";
 
 type SectionDraftRow = {
@@ -286,6 +282,11 @@ export function LexcheckWorkspaceRightPanel({
   const [qDetailMode, setQDetailMode] = useState<"risk-only" | "all">("risk-only");
   const [quickExamGenBusy, setQuickExamGenBusy] = useState(false);
   const [quickExamReportText, setQuickExamReportText] = useState("");
+  const [quickExamHistory, setQuickExamHistory] = useState<
+    Array<{ id: string; createdAt: string; mode: string }>
+  >([]);
+  const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
   /** 最近一次生成的阶段、切块、API 次数与计时（结束后仍保留展示） */
   const [quickExamRunDetail, setQuickExamRunDetail] = useState<{
     stats: QuickExamRunStats | null;
@@ -293,26 +294,37 @@ export function LexcheckWorkspaceRightPanel({
     endedAt: number | null;
   }>({ stats: null, startedAt: null, endedAt: null });
   const [, setQuickExamTick] = useState(0);
-  const [quickExamExportOpen, setQuickExamExportOpen] = useState(false);
   const quickExamReportBodyRef = useRef<HTMLDivElement | null>(null);
-  const quickExamExportWrapRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     setQuickExamReportText(localStorage.getItem(quickExamReportStorageKey(token)) ?? "");
   }, [token]);
 
-  useEffect(() => {
-    if (!quickExamExportOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      const el = quickExamExportWrapRef.current;
-      if (el && !el.contains(e.target as Node)) setQuickExamExportOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [quickExamExportOpen]);
+  const refreshQuickExamHistory = useCallback(async () => {
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(
+        `/api/lawyer/checkups/${encodeURIComponent(token)}/quick-exam-report/history`,
+        { cache: "no-store" }
+      );
+      if (!res.ok) return;
+      const json = (await res.json()) as {
+        jobs?: Array<{ id: string; createdAt: string; mode: string }>;
+      };
+      setQuickExamHistory(json.jobs ?? []);
+    } catch {
+      // ignore
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [token]);
 
   useEffect(() => {
+    void refreshQuickExamHistory();
+  }, [refreshQuickExamHistory]);
+
+useEffect(() => {
     setAttachmentRows(attachments);
   }, [attachments]);
 
@@ -802,9 +814,14 @@ export function LexcheckWorkspaceRightPanel({
       }
 
       setQuickExamReportText(json.reportText);
+      setSelectedHistoryJobId(null);
       if (typeof window !== "undefined") {
         localStorage.setItem(quickExamReportStorageKey(token), json.reportText);
+        window.dispatchEvent(
+          new CustomEvent("lexcheck:quick-exam-history-updated", { detail: { token } })
+        );
       }
+      void refreshQuickExamHistory();
 
       if (json.runStats) {
         setQuickExamRunDetail((d) => ({ ...d, stats: json.runStats ?? d.stats }));
@@ -831,7 +848,7 @@ export function LexcheckWorkspaceRightPanel({
     }
   }
 
-  async function exportQuickExamReport(kind: "md" | "docx" | "pdf") {
+  async function exportQuickExamReportDocx() {
     const text = quickExamReportText.trim();
     if (!text) {
       setErr("请先生成报告内容");
@@ -840,14 +857,27 @@ export function LexcheckWorkspaceRightPanel({
     setErr(null);
     const base = companyName?.trim() || `体检报告-${token.slice(0, 8)}`;
     try {
-      if (kind === "md") downloadQuickExamMarkdown(text, base);
-      else if (kind === "docx") await downloadQuickExamDocx(text, base);
-      else await downloadQuickExamPdf(quickExamReportBodyRef.current, base);
-      setMsg(kind === "pdf" ? "PDF 已导出" : kind === "docx" ? "Word 已导出" : "Markdown 已导出");
+      await downloadQuickExamDocx(text, base);
+      setMsg("Word 已导出");
     } catch (e) {
       setErr(String(e));
-    } finally {
-      setQuickExamExportOpen(false);
+    }
+  }
+
+  async function loadHistoryReport(jobId: string) {
+    setErr(null);
+    try {
+      const res = await fetch(
+        `/api/lawyer/checkups/${encodeURIComponent(token)}/quick-exam-report/history/${encodeURIComponent(jobId)}`
+      );
+      if (!res.ok) throw new Error("获取历史报告失败");
+      const json = (await res.json()) as { job?: { reportText?: string } };
+      const text = json.job?.reportText?.trim();
+      if (!text) throw new Error("历史报告内容为空");
+      setQuickExamReportText(text);
+      setSelectedHistoryJobId(jobId);
+    } catch (e) {
+      setErr(String(e));
     }
   }
 
@@ -974,51 +1004,54 @@ export function LexcheckWorkspaceRightPanel({
                       <Sparkles className="h-4 w-4" />
                     )}
                   </Button>
-                  <div className="relative" ref={quickExamExportWrapRef}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                      title="导出下载"
-                      disabled={!quickExamReportText.trim()}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setQuickExamExportOpen((o) => !o);
-                      }}
-                    >
-                      <Download className="h-4 w-4" />
-                    </Button>
-                    {quickExamExportOpen ? (
-                      <div className="absolute right-0 top-full z-50 mt-1 w-44 rounded-md border bg-popover py-1 text-xs shadow-md">
-                        <button
-                          type="button"
-                          className="block w-full px-3 py-2 text-left hover:bg-muted"
-                          onClick={() => void exportQuickExamReport("md")}
-                        >
-                          Markdown (.md)
-                        </button>
-                        <button
-                          type="button"
-                          className="block w-full px-3 py-2 text-left hover:bg-muted"
-                          onClick={() => void exportQuickExamReport("docx")}
-                        >
-                          Word (.docx)
-                        </button>
-                        <button
-                          type="button"
-                          className="block w-full px-3 py-2 text-left hover:bg-muted"
-                          onClick={() => void exportQuickExamReport("pdf")}
-                        >
-                          PDF (.pdf)
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    title="导出 Word"
+                    disabled={!quickExamReportText.trim()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void exportQuickExamReportDocx();
+                    }}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
               <div className="px-3 py-3 text-xs">
+                {/* 历史报告选择器 */}
+                {!historyLoading && quickExamHistory.length > 0 && (
+                  <div className="mb-2 flex flex-wrap items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 text-[11px]">
+                    <span className="shrink-0 text-muted-foreground">历史记录</span>
+                    <select
+                      className="min-w-0 flex-1 rounded border bg-background px-1.5 py-1 text-[11px] text-foreground"
+                      value={selectedHistoryJobId ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) {
+                          setSelectedHistoryJobId(null);
+                          if (typeof window !== "undefined") {
+                            setQuickExamReportText(
+                              localStorage.getItem(quickExamReportStorageKey(token)) ?? ""
+                            );
+                          }
+                        } else {
+                          void loadHistoryReport(val);
+                        }
+                      }}
+                    >
+                      <option value="">最新生成</option>
+                      {quickExamHistory.map((job) => (
+                        <option key={job.id} value={job.id}>
+                          {new Date(job.createdAt).toLocaleString()}
+                          {job.mode === "sync_full" ? "（同步）" : "（分块）"}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {quickExamRunDetail.startedAt != null ? (
                   <div className="mb-2 space-y-1.5 rounded-md border border-border/60 bg-muted/30 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
                     <div className="font-semibold text-foreground">本次生成过程</div>
