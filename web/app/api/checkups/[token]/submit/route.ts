@@ -12,8 +12,15 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
-  const body = (await req.json()) as { companyName?: unknown; answers?: unknown };
+  const body = (await req.json()) as {
+    companyName?: unknown;
+    contactName?: unknown;
+    contactPhone?: unknown;
+    answers?: unknown;
+  };
   const companyName = typeof body.companyName === "string" ? body.companyName.trim() : "";
+  const contactName = typeof body.contactName === "string" ? body.contactName.trim() : "";
+  const contactPhone = typeof body.contactPhone === "string" ? body.contactPhone.trim() : "";
   const answers = body.answers ?? {};
   const now = new Date();
 
@@ -31,6 +38,8 @@ export async function POST(
       create: {
         token,
         companyName,
+        contactName,
+        contactPhone,
         status: "submitted",
         answersJson: answers,
         savedAt: now,
@@ -38,6 +47,8 @@ export async function POST(
       },
       update: {
         companyName,
+        contactName,
+        contactPhone,
         status: "submitted",
         answersJson: answers,
         savedAt: now,
@@ -49,6 +60,8 @@ export async function POST(
       ok: true,
       token: checkup.token,
       companyName: checkup.companyName ?? "",
+      contactName: checkup.contactName ?? "",
+      contactPhone: checkup.contactPhone ?? "",
       status: checkup.status,
       savedAt: checkup.savedAt.toISOString(),
       submittedAt: checkup.submittedAt?.toISOString() ?? null,

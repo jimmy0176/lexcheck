@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -22,21 +22,60 @@ type CheckupItem = {
   savedAtLabel: string;
 };
 
-const darkGhostBtn =
-  "w-full justify-start border-0 bg-transparent text-base text-white hover:bg-sidebar-accent hover:text-white";
+type WorkspaceShape = {
+  projectStatus: string;
+  ownerName: string;
+  promptTemplate: string;
+  reportTemplate: string;
+  progress: Record<string, boolean>;
+};
+
+async function fetchWorkspace(token: string) {
+  const res = await fetch(`/api/lawyer/checkups/${token}/workspace`, {
+    cache: "no-store",
+  });
+  const json = (await res.json()) as {
+    error?: string;
+    message?: string;
+    workspace?: WorkspaceShape;
+  };
+  if (!res.ok || !json.workspace) {
+    throw new Error(json.message ?? json.error ?? `请求失败 ${res.status}`);
+  }
+  return json.workspace;
+}
+
+async function patchWorkspace(token: string, patch: Partial<WorkspaceShape>) {
+  const base = await fetchWorkspace(token);
+  const payload: WorkspaceShape = {
+    projectStatus: patch.projectStatus ?? base.projectStatus,
+    ownerName: patch.ownerName ?? base.ownerName,
+    promptTemplate: patch.promptTemplate ?? base.promptTemplate,
+    reportTemplate: patch.reportTemplate ?? base.reportTemplate,
+    progress: patch.progress ?? base.progress,
+  };
+
+  const res = await fetch(`/api/lawyer/checkups/${token}/workspace`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const json = (await res.json()) as { error?: string; message?: string };
+  if (!res.ok) {
+    throw new Error(json.message ?? json.error ?? `保存失败 ${res.status}`);
+  }
+}
 
 export function QuestionnairePickerButton({
   checkups,
   selectedToken,
   autoOpen = false,
   buttonLabel = "切换问卷",
-  iconOnly = false,
 }: {
   checkups: CheckupItem[];
   selectedToken?: string;
   autoOpen?: boolean;
   buttonLabel?: string;
-  iconOnly?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(autoOpen);
@@ -53,29 +92,15 @@ export function QuestionnairePickerButton({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      {iconOnly ? (
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="shrink-0 border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white"
-          title="选择问卷"
-          aria-label="选择问卷"
-          onClick={() => setOpen(true)}
-        >
-          <FileSearch className="h-4 w-4" />
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white"
-          onClick={() => setOpen(true)}
-        >
-          {buttonLabel}
-        </Button>
-      )}
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        className="border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white"
+        onClick={() => setOpen(true)}
+      >
+        {buttonLabel}
+      </Button>
       <AlertDialogContent className="max-w-3xl p-0">
         <AlertDialogHeader className="border-b px-6 py-4">
           <AlertDialogTitle>选择企业问卷</AlertDialogTitle>
@@ -96,7 +121,7 @@ export function QuestionnairePickerButton({
                   key={item.id}
                   type="button"
                   onClick={() => {
-                    router.push(`/lawyer/checkups/lexcheck?token=${encodeURIComponent(item.token)}`);
+                    router.push(`/lawyer/checkups/dd-report?token=${encodeURIComponent(item.token)}`);
                     setOpen(false);
                   }}
                   className={`w-full rounded-md border p-3 text-left transition hover:bg-muted/30 ${
@@ -126,8 +151,21 @@ export function QuestionnairePickerButton({
   );
 }
 
-export function WorkspaceSettingsButtons() {
+export function WorkspaceSettingsButtons({
+  token,
+  initialPromptTemplate,
+  initialReportTemplate,
+}: {
+  token: string;
+  initialPromptTemplate: string;
+  initialReportTemplate: string;
+}) {
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
+  const [promptTemplate, setPromptTemplate] = useState(initialPromptTemplate);
+  const [reportTemplate, setReportTemplate] = useState(initialReportTemplate);
+  const [saving, setSaving] = useState<"prompt" | "report" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,6 +191,36 @@ export function WorkspaceSettingsButtons() {
     const defaultModel = p?.models?.[0] ?? "qwen-turbo";
     setModelName(model || defaultModel);
   }, []);
+
+  async function savePromptTemplate() {
+    setSaving("prompt");
+    setMessage(null);
+    setError(null);
+    try {
+      await patchWorkspace(token, { promptTemplate });
+      setMessage("提示词模板已保存");
+      setPromptOpen(false);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  async function saveReportTemplate() {
+    setSaving("report");
+    setMessage(null);
+    setError(null);
+    try {
+      await patchWorkspace(token, { reportTemplate });
+      setMessage("报告输出模板已保存");
+      setReportOpen(false);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(null);
+    }
+  }
 
   function saveModelProfile() {
     localStorage.setItem("lexcheck:model:providerId", providerId);
@@ -203,19 +271,68 @@ export function WorkspaceSettingsButtons() {
     }
   }
 
+  const darkGhostBtn =
+    "w-full justify-start border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white";
+
   return (
     <div className="space-y-2">
+      <Button type="button" variant="ghost" className={darkGhostBtn} onClick={() => setPromptOpen(true)}>
+        提示词模板
+      </Button>
+      <Button type="button" variant="ghost" className={darkGhostBtn} onClick={() => setReportOpen(true)}>
+        报告输出模板
+      </Button>
       <Button type="button" variant="ghost" className={darkGhostBtn} onClick={() => setModelOpen(true)}>
         大模型设置
       </Button>
 
       {(message || error) && (
         <div
-          className={`rounded-md border px-3 py-2 text-sm ${error ? "border-destructive/40 text-destructive" : "border-white/15 text-white/60"}`}
+          className={`rounded-md border px-3 py-2 text-xs ${error ? "border-destructive/40 text-destructive" : "border-white/15 text-white/60"}`}
         >
           {error ?? message}
         </div>
       )}
+
+      <AlertDialog open={promptOpen} onOpenChange={setPromptOpen}>
+        <AlertDialogContent className="max-w-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>提示词模板</AlertDialogTitle>
+          </AlertDialogHeader>
+          <Textarea
+            value={promptTemplate}
+            onChange={(e) => setPromptTemplate(e.target.value)}
+            className="min-h-[45vh]"
+            placeholder="填写分部草稿生成时的默认提示词模板"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <Button type="button" onClick={() => void savePromptTemplate()} disabled={saving === "prompt"}>
+              {saving === "prompt" ? "保存中…" : "保存模板"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={reportOpen} onOpenChange={setReportOpen}>
+        <AlertDialogContent className="max-w-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>报告输出模板</AlertDialogTitle>
+          </AlertDialogHeader>
+          <Textarea
+            value={reportTemplate}
+            onChange={(e) => setReportTemplate(e.target.value)}
+            className="min-h-[45vh]"
+            placeholder="填写最终报告输出结构与排版要求"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <Button type="button" onClick={() => void saveReportTemplate()} disabled={saving === "report"}>
+              {saving === "report" ? "保存中…" : "保存模板"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={modelOpen} onOpenChange={setModelOpen}>
         <AlertDialogContent className="max-w-3xl">

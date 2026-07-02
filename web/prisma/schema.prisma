@@ -33,6 +33,8 @@ model Checkup {
   id          String            @id @default(cuid())
   token       String            @unique
   companyName String?
+  contactName String?
+  contactPhone String?
   status      CheckupStatus     @default(draft)
   answersJson Json              @default("{}")
   savedAt     DateTime          @default(now())

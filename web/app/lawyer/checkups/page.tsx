@@ -12,12 +12,24 @@ export default function LawyerCheckupsPage() {
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card className="flex h-full flex-col p-6 shadow-sm">
-            <div className="text-sm font-medium">Lexcheck 企业法律体检</div>
+            <div className="text-sm font-medium">法律体检</div>
             <p className="mt-2 flex-1 text-sm text-muted-foreground">
-              进入律师端问卷工作区，查看客户提交记录、检索 token 并打开详情页面。
+              根据企业问卷答案生成精简版体检报告，查看客户提交记录、检索 token 并打开详情页面。
             </p>
             <Link
               href="/lawyer/checkups/lexcheck"
+              className="mt-6 text-sm font-medium text-primary underline underline-offset-4"
+            >
+              进入应用
+            </Link>
+          </Card>
+          <Card className="flex h-full flex-col p-6 shadow-sm">
+            <div className="text-sm font-medium">尽调报告</div>
+            <p className="mt-2 flex-1 text-sm text-muted-foreground">
+              分部草稿生成、附件解析与最终尽调报告汇总，适合需要完整尽调流程的项目。
+            </p>
+            <Link
+              href="/lawyer/checkups/dd-report"
               className="mt-6 text-sm font-medium text-primary underline underline-offset-4"
             >
               进入应用

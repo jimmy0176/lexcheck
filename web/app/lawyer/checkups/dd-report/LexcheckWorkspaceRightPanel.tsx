@@ -892,8 +892,8 @@ useEffect(() => {
             className={cn(
               "relative rounded-t-md px-3 py-2 text-xs font-medium transition-colors sm:text-sm",
               tab === t.id
-                ? "text-foreground after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-primary"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-gradient-to-b from-primary/15 to-primary/5 text-primary after:absolute after:bottom-0 after:left-2 after:right-2 after:h-0.5 after:rounded-full after:bg-primary"
+                : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
             )}
           >
             {t.label}

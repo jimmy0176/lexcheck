@@ -6,6 +6,8 @@ export type DraftEnvelope = {
   questionnaireVersion: string;
   token: string;
   companyName?: string;
+  contactName?: string;
+  contactPhone?: string;
   savedAt: string; // ISO
   submittedAt?: string; // ISO
   answers: Answers;

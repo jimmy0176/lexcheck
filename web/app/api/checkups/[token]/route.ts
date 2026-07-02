@@ -20,6 +20,8 @@ export async function GET(
       return NextResponse.json({
         token,
         companyName: "",
+        contactName: "",
+        contactPhone: "",
         status: "draft",
         answers: {},
         savedAt: null,
@@ -30,6 +32,8 @@ export async function GET(
     return NextResponse.json({
       token: checkup.token,
       companyName: checkup.companyName ?? "",
+      contactName: checkup.contactName ?? "",
+      contactPhone: checkup.contactPhone ?? "",
       status: checkup.status,
       answers: checkup.answersJson,
       savedAt: checkup.savedAt.toISOString(),
@@ -40,6 +44,8 @@ export async function GET(
     return NextResponse.json({
       token,
       companyName: "",
+      contactName: "",
+      contactPhone: "",
       status: "draft",
       answers: {},
       savedAt: null,
@@ -54,8 +60,15 @@ export async function PATCH(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
-  const body = (await req.json()) as { companyName?: unknown; answers?: unknown };
+  const body = (await req.json()) as {
+    companyName?: unknown;
+    contactName?: unknown;
+    contactPhone?: unknown;
+    answers?: unknown;
+  };
   const companyName = typeof body.companyName === "string" ? body.companyName.trim() : "";
+  const contactName = typeof body.contactName === "string" ? body.contactName.trim() : "";
+  const contactPhone = typeof body.contactPhone === "string" ? body.contactPhone.trim() : "";
   const answers = body.answers ?? {};
   const now = new Date();
 
@@ -66,12 +79,16 @@ export async function PATCH(
       create: {
         token,
         companyName,
+        contactName,
+        contactPhone,
         status: "draft",
         answersJson: answers,
         savedAt: now,
       },
       update: {
         companyName,
+        contactName,
+        contactPhone,
         answersJson: answers,
         savedAt: now,
       },
@@ -81,6 +98,8 @@ export async function PATCH(
       ok: true,
       token: checkup.token,
       companyName: checkup.companyName ?? "",
+      contactName: checkup.contactName ?? "",
+      contactPhone: checkup.contactPhone ?? "",
       status: checkup.status,
       savedAt: checkup.savedAt.toISOString(),
       storageMode: "server",

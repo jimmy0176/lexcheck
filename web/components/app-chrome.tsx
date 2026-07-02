@@ -7,13 +7,13 @@ import { SiteHeader } from "@/components/site-header";
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const hideHeader = pathname.startsWith("/lawyer/checkups");
+  const hideChrome = pathname.startsWith("/lawyer/checkups");
 
   return (
     <>
-      {!hideHeader ? <SiteHeader /> : null}
+      {!hideChrome ? <SiteHeader /> : null}
       <div className="flex-1">{children}</div>
-      <SiteFooter />
+      {!hideChrome ? <SiteFooter /> : null}
     </>
   );
 }

@@ -11,7 +11,11 @@ export type DdSegmentDefaultBlock = {
 /** 由 `尽调报告_14个MD模板` 解析生成的内置默认（dd_01…dd_14） */
 export const DD_SEGMENT_DEFAULT_TEMPLATES = raw as Record<string, DdSegmentDefaultBlock>;
 
-/** 与尽调分部共用 SegmentTemplateSettingsDialog；勿写入 json，以免被 build:dd-templates 覆盖 */
+/**
+ * 尽调报告应用（/lawyer/checkups/dd-report）「快速体检」标签专用 key，与尽调分部共用
+ * SegmentTemplateSettingsDialog；勿写入 json，以免被 build:dd-templates 覆盖。
+ * 该应用管道未改动，模板仍是 LLM 自由生成全文的骨架，不要与下面的体检报告 key 混用。
+ */
 export const LEXCHECK_QUICK_EXAM_SECTION_KEY = "lexcheck_quick_exam_report";
 
 /** 每次更新内置默认时递增，用于强制刷新用户 localStorage 中的旧模版 */
@@ -67,8 +71,29 @@ const QUICK_EXAM_REPORT_DEFAULT: DdSegmentDefaultBlock = {
   outputSubsections: [],
 };
 
+/**
+ * 法律体检应用（/lawyer/checkups/lexcheck）体检报告专用 key，与尽调报告应用完全独立。
+ * 该应用的报告正文各模块由系统按问卷答案逐条拼装生成，LLM 只负责「报告摘要」与
+ * 「重点整改顺序建议」这两小段，这里的 prompt/output 是补充语气与格式指引，不是全文骨架。
+ */
+export const CHECKUP_REPORT_SECTION_KEY = "lexcheck_checkup_report";
+
+export const CHECKUP_REPORT_TEMPLATE_VERSION = "v1";
+
+const CHECKUP_REPORT_DEFAULT: DdSegmentDefaultBlock = {
+  prompt:
+    "你是谨慎、务实的企业法律顾问，语气专业克制，避免夸大或渲染风险。\n" +
+    "只依据系统提供的模块名称、分数、优先级与客户自述内容撰写，不得编造具体法律风险事实，不得提及未在列表中出现的模块。\n",
+  outputFull:
+    "报告摘要：2–4 句话，概述整体合规态势，优先点出优先级为「高」「中高」的模块。\n\n" +
+    "重点整改顺序建议：按「第一阶段（1 个月内）」「第二阶段（2–3 个月内）」「第三阶段（3–6 个月内）」三段整理，" +
+    "每段以加粗标题开头，只提模块名称和处理方向，不复述具体风险细节。\n",
+  outputSubsections: [],
+};
+
 export function getDdSegmentDefaultTemplate(sectionKey: string): DdSegmentDefaultBlock | null {
   if (sectionKey === LEXCHECK_QUICK_EXAM_SECTION_KEY) return QUICK_EXAM_REPORT_DEFAULT;
+  if (sectionKey === CHECKUP_REPORT_SECTION_KEY) return CHECKUP_REPORT_DEFAULT;
   return DD_SEGMENT_DEFAULT_TEMPLATES[sectionKey] ?? null;
 }
 

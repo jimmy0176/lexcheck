@@ -11,7 +11,6 @@ import {
   LEXCHECK_QUICK_EXAM_SECTION_KEY,
   type DdSegmentDefaultBlock,
 } from "@/lib/dd-segment-default-templates";
-import { DEFAULT_PRIORITY_THRESHOLDS, PRIORITY_THRESHOLDS_STORAGE_KEY } from "@/lib/checkup-report-assemble";
 
 const CUSTOM_LS = "lexcheck:segment-saved-templates:v1";
 
@@ -77,17 +76,6 @@ function promptForChoice(
     return `${base}\n\n【生成范围】请围绕「${sub.title}」要点撰写，并与 output 模版一致。`.trim();
   }
   return `${base}\n\n【生成范围】请围绕输出模版中的「${sub.title}」小节生成对应正文，并与「输出结构/要点」字段中的模版保持一致。`.trim();
-}
-
-function readStoredThresholdPercents(): Partial<typeof DEFAULT_PRIORITY_THRESHOLDS> | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(PRIORITY_THRESHOLDS_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as Partial<typeof DEFAULT_PRIORITY_THRESHOLDS>;
-  } catch {
-    return null;
-  }
 }
 
 function readPersistedFromLs(token: string, sectionKey: string) {
@@ -193,40 +181,6 @@ export function SegmentTemplateSettingsDialog({
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [customDraft, setCustomDraft] = useState<{ name: string; desc: string } | null>(null);
-
-  const [lowPct, setLowPct] = useState(() => {
-    const parsed = readStoredThresholdPercents();
-    return String(Math.round((parsed?.low ?? DEFAULT_PRIORITY_THRESHOLDS.low) * 100));
-  });
-  const [midPct, setMidPct] = useState(() => {
-    const parsed = readStoredThresholdPercents();
-    return String(Math.round((parsed?.mid ?? DEFAULT_PRIORITY_THRESHOLDS.mid) * 100));
-  });
-  const [midHighPct, setMidHighPct] = useState(() => {
-    const parsed = readStoredThresholdPercents();
-    return String(Math.round((parsed?.midHigh ?? DEFAULT_PRIORITY_THRESHOLDS.midHigh) * 100));
-  });
-  const [thresholdsMsg, setThresholdsMsg] = useState<string | null>(null);
-  const [thresholdsErr, setThresholdsErr] = useState<string | null>(null);
-
-  function saveThresholds() {
-    const low = Number(lowPct) / 100;
-    const mid = Number(midPct) / 100;
-    const midHigh = Number(midHighPct) / 100;
-    if (![low, mid, midHigh].every((v) => Number.isFinite(v) && v > 0 && v < 1)) {
-      setThresholdsErr("阈值需为 0–100 之间的数字");
-      setThresholdsMsg(null);
-      return;
-    }
-    if (!(low > mid && mid > midHigh)) {
-      setThresholdsErr("阈值需满足：低 > 中 > 中高（例如 90 / 75 / 50）");
-      setThresholdsMsg(null);
-      return;
-    }
-    localStorage.setItem(PRIORITY_THRESHOLDS_STORAGE_KEY, JSON.stringify({ low, mid, midHigh }));
-    setThresholdsMsg("优先级阈值已保存到当前浏览器。");
-    setThresholdsErr(null);
-  }
 
   const persisted = useMemo(() => {
     if (!open || !sectionKey || typeof window === "undefined") return { prompt: "", output: "" };
@@ -723,61 +677,6 @@ export function SegmentTemplateSettingsDialog({
                   </Button>
                 ) : null}
               </div>
-
-              {isQuickExam ? (
-                <div className="mt-3 rounded-md border border-border/80 bg-muted/20 px-3 py-3">
-                  <div className="text-xs font-medium text-foreground">优先级阈值设置</div>
-                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                    按各模块「得分/满分」占比划档，决定报告中模块的优先级标签（高/中高/中/低）。三个值需满足 低 &gt;
-                    中 &gt; 中高，单位为百分比。
-                  </p>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
-                    <label className="space-y-1">
-                      <span className="text-[11px] text-muted-foreground">「低」下限（≥）</span>
-                      <input
-                        value={lowPct}
-                        onChange={(e) => setLowPct(e.target.value)}
-                        type="number"
-                        min={1}
-                        max={99}
-                        className="h-9 w-full rounded-md border bg-background px-2.5 text-sm"
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-[11px] text-muted-foreground">「中」下限（≥）</span>
-                      <input
-                        value={midPct}
-                        onChange={(e) => setMidPct(e.target.value)}
-                        type="number"
-                        min={1}
-                        max={99}
-                        className="h-9 w-full rounded-md border bg-background px-2.5 text-sm"
-                      />
-                    </label>
-                    <label className="space-y-1">
-                      <span className="text-[11px] text-muted-foreground">「中高」下限（≥，以下为「高」）</span>
-                      <input
-                        value={midHighPct}
-                        onChange={(e) => setMidHighPct(e.target.value)}
-                        type="number"
-                        min={1}
-                        max={99}
-                        className="h-9 w-full rounded-md border bg-background px-2.5 text-sm"
-                      />
-                    </label>
-                  </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Button type="button" size="sm" variant="secondary" onClick={saveThresholds}>
-                      保存阈值
-                    </Button>
-                    {thresholdsErr ? (
-                      <span className="text-[11px] text-destructive">{thresholdsErr}</span>
-                    ) : thresholdsMsg ? (
-                      <span className="text-[11px] text-muted-foreground">{thresholdsMsg}</span>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
 
               <div className="mt-3 grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
                 <label className="flex min-h-0 flex-col gap-1.5">

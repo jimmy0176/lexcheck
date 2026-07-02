@@ -57,24 +57,26 @@ function isAnswered(q: QuestionnaireQuestion, a: Answers[string] | undefined) {
   return false;
 }
 
-function visibleQuestionsForSection(
-  section: QuestionnaireConfig["sections"][number],
-  answers: Answers
-) {
-  const hasGateQuestion = section.questions.some((q) => q.qid === "6-1");
-  if (!hasGateQuestion) return section.questions;
-
-  const gateAnswer = answers["6-1"];
-  const collapseSectionSix =
-    gateAnswer?.kind === "single_choice" && gateAnswer.value === "opt2";
-
-  if (!collapseSectionSix) return section.questions;
-  return section.questions.filter((q) => q.qid === "6-1");
+/** 门槛题触发跳过时，对应子题不隐藏，但变为非必填（不计入进度、不显示"未填"标记）。 */
+function computeSkippedQids(config: QuestionnaireConfig, answers: Answers): Set<string> {
+  const skipped = new Set<string>();
+  for (const section of config.sections) {
+    for (const q of section.questions) {
+      if (q.type !== "single_choice" || !q.skipGate) continue;
+      const a = answers[q.qid];
+      if (a?.kind === "single_choice" && a.value === q.skipGate.triggerValue) {
+        for (const sq of q.skipGate.skipQids) skipped.add(sq);
+      }
+    }
+  }
+  return skipped;
 }
 
 export function QuestionnaireClient({ token }: { token: string }) {
   const [config, setConfig] = useState<QuestionnaireConfig | null>(null);
   const [companyName, setCompanyName] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [answers, setAnswers] = useState<Answers>({});
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [submittedAt, setSubmittedAt] = useState<Date | null>(null);
@@ -93,6 +95,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
 
       let draft: {
         companyName?: string;
+        contactName?: string;
+        contactPhone?: string;
         answers?: Answers;
         savedAt?: string | null;
         submittedAt?: string | null;
@@ -103,6 +107,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
         if (!draftRes.ok) throw new Error("server unavailable");
         draft = (await draftRes.json()) as {
           companyName?: string;
+          contactName?: string;
+          contactPhone?: string;
           answers?: Answers;
           savedAt?: string | null;
           submittedAt?: string | null;
@@ -112,6 +118,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
         const local = loadDraft(json, token);
         draft = {
           companyName: local?.companyName ?? "",
+          contactName: local?.contactName ?? "",
+          contactPhone: local?.contactPhone ?? "",
           answers: local?.answers,
           savedAt: local?.savedAt ?? null,
           submittedAt: local?.submittedAt ?? null,
@@ -126,6 +134,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
         }
       }
       setCompanyName(draft.companyName ?? "");
+      setContactName(draft.contactName ?? "");
+      setContactPhone(draft.contactPhone ?? "");
       setAnswers(initialAnswers);
       setSubmittedAt(draft?.submittedAt ? new Date(draft.submittedAt) : null);
       if (draft?.savedAt) {
@@ -140,24 +150,26 @@ export function QuestionnaireClient({ token }: { token: string }) {
     };
   }, [token]);
 
+  const skippedQids = useMemo(
+    () => (config ? computeSkippedQids(config, answers) : new Set<string>()),
+    [config, answers]
+  );
+
   const computed = useMemo(() => {
     if (!config) return null;
-    const total = config.sections.reduce(
-      (acc, s) => acc + visibleQuestionsForSection(s, answers).length,
-      0
-    );
+    const countableQuestions = (s: QuestionnaireConfig["sections"][number]) =>
+      s.questions.filter((q) => !skippedQids.has(q.qid));
+    const total = config.sections.reduce((acc, s) => acc + countableQuestions(s).length, 0);
     const answered = config.sections.reduce(
-      (acc, s) => {
-        const visibleQuestions = visibleQuestionsForSection(s, answers);
-        return acc + visibleQuestions.filter((q) => isAnswered(q, answers[q.qid])).length;
-      },
+      (acc, s) =>
+        acc + countableQuestions(s).filter((q) => isAnswered(q, answers[q.qid])).length,
       0
     );
     const percent = total === 0 ? 0 : Math.round((answered / total) * 100);
     const perSection = config.sections.map((s) => {
-      const visibleQuestions = visibleQuestionsForSection(s, answers);
-      const t = visibleQuestions.length;
-      const a = visibleQuestions.filter((q) => isAnswered(q, answers[q.qid])).length;
+      const questions = countableQuestions(s);
+      const t = questions.length;
+      const a = questions.filter((q) => isAnswered(q, answers[q.qid])).length;
       return {
         sectionId: s.sectionId,
         title: s.title,
@@ -167,24 +179,41 @@ export function QuestionnaireClient({ token }: { token: string }) {
       };
     });
     return { total, answered, percent, perSection };
-  }, [answers, config]);
+  }, [answers, config, skippedQids]);
 
-  async function saveToServer(nextCompanyName: string, nextAnswers: Answers) {
+  async function saveToServer(
+    nextCompanyName: string,
+    nextContactName: string,
+    nextContactPhone: string,
+    nextAnswers: Answers
+  ) {
     const res = await fetch(`/api/checkups/${token}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ companyName: nextCompanyName, answers: nextAnswers }),
+      body: JSON.stringify({
+        companyName: nextCompanyName,
+        contactName: nextContactName,
+        contactPhone: nextContactPhone,
+        answers: nextAnswers,
+      }),
     });
     if (!res.ok) throw new Error("保存失败");
     const data = (await res.json()) as { savedAt: string };
     return new Date(data.savedAt);
   }
 
-  async function saveHybrid(nextCompanyName: string, nextAnswers: Answers) {
+  async function saveHybrid(
+    nextCompanyName: string,
+    nextContactName: string,
+    nextContactPhone: string,
+    nextAnswers: Answers
+  ) {
     if (saveMode === "local" && config) {
       const now = new Date();
       saveDraft(config, token, {
         companyName: nextCompanyName,
+        contactName: nextContactName,
+        contactPhone: nextContactPhone,
         answers: nextAnswers,
         savedAt: now.toISOString(),
         submittedAt: submittedAt ? submittedAt.toISOString() : undefined,
@@ -192,7 +221,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
       return now;
     }
     try {
-      const now = await saveToServer(nextCompanyName, nextAnswers);
+      const now = await saveToServer(nextCompanyName, nextContactName, nextContactPhone, nextAnswers);
       setSaveMode("server");
       return now;
     } catch {
@@ -200,6 +229,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
       const now = new Date();
       saveDraft(config, token, {
         companyName: nextCompanyName,
+        contactName: nextContactName,
+        contactPhone: nextContactPhone,
         answers: nextAnswers,
         savedAt: now.toISOString(),
         submittedAt: submittedAt ? submittedAt.toISOString() : undefined,
@@ -209,12 +240,17 @@ export function QuestionnaireClient({ token }: { token: string }) {
     }
   }
 
-  function scheduleSave(nextCompanyName: string, nextAnswers: Answers) {
+  function scheduleSave(
+    nextCompanyName: string,
+    nextContactName: string,
+    nextContactPhone: string,
+    nextAnswers: Answers
+  ) {
     if (debounceTimer.current) window.clearTimeout(debounceTimer.current);
     setSaveState({ kind: "saving" });
     debounceTimer.current = window.setTimeout(async () => {
       try {
-        const now = await saveHybrid(nextCompanyName, nextAnswers);
+        const now = await saveHybrid(nextCompanyName, nextContactName, nextContactPhone, nextAnswers);
         setSaveState({ kind: "saved", at: now });
       } catch (e) {
         console.error(e);
@@ -227,7 +263,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
     if (submittedAt) return;
     setAnswers((prev) => {
       const next = { ...prev, [qid]: value };
-      scheduleSave(companyName, next);
+      scheduleSave(companyName, contactName, contactPhone, next);
       return next;
     });
   }
@@ -235,7 +271,19 @@ export function QuestionnaireClient({ token }: { token: string }) {
   function onCompanyNameChange(value: string) {
     if (submittedAt) return;
     setCompanyName(value);
-    scheduleSave(value, answers);
+    scheduleSave(value, contactName, contactPhone, answers);
+  }
+
+  function onContactNameChange(value: string) {
+    if (submittedAt) return;
+    setContactName(value);
+    scheduleSave(companyName, value, contactPhone, answers);
+  }
+
+  function onContactPhoneChange(value: string) {
+    if (submittedAt) return;
+    setContactPhone(value);
+    scheduleSave(companyName, contactName, value, answers);
   }
 
   function fillFirstUnansweredChoices(base: Answers): Answers {
@@ -265,7 +313,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
   function applyAutofillFirstOptions() {
     const next = fillFirstUnansweredChoices(answers);
     setAnswers(next);
-    scheduleSave(companyName, next);
+    scheduleSave(companyName, contactName, contactPhone, next);
     setAutofillOpen(false);
   }
 
@@ -352,6 +400,30 @@ export function QuestionnaireClient({ token }: { token: string }) {
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
+            <div className="mt-3 grid max-w-xl grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm text-muted-foreground">联系人</label>
+                <input
+                  type="text"
+                  value={contactName}
+                  onChange={(e) => onContactNameChange(e.target.value)}
+                  disabled={readonly}
+                  placeholder="请输入联系人姓名"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-sm text-muted-foreground">电话号码</label>
+                <input
+                  type="tel"
+                  value={contactPhone}
+                  onChange={(e) => onContactPhoneChange(e.target.value)}
+                  disabled={readonly}
+                  placeholder="请输入联系电话"
+                  className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
               <span>
                 进度 {computed.answered}/{computed.total}
@@ -378,7 +450,6 @@ export function QuestionnaireClient({ token }: { token: string }) {
         <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_18rem]">
           <div className="space-y-6">
             {config.sections.map((section) => {
-              const visibleQuestions = visibleQuestionsForSection(section, answers);
               return (
               <Card
                 key={section.sectionId}
@@ -390,16 +461,22 @@ export function QuestionnaireClient({ token }: { token: string }) {
                 </div>
                 <Separator className="my-2" />
                 <div className="space-y-6">
-                  {visibleQuestions.map((q) => {
+                  {section.questions.map((q) => {
                     const currentAnswer = answers[q.qid];
+                    const skipped = skippedQids.has(q.qid);
                     return (
                       <div key={q.qid} className="space-y-2">
                         <div className="flex items-start justify-between gap-3">
                           <div className="text-base font-medium leading-7">
                             <span className="mr-2 text-muted-foreground">{q.qid}</span>
                             {q.question}
+                            {skipped && (
+                              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                                （前置题已跳转，可不填）
+                              </span>
+                            )}
                           </div>
-                          {!isAnswered(q, currentAnswer) && (
+                          {!skipped && !isAnswered(q, currentAnswer) && (
                             <Badge variant="outline">未填</Badge>
                           )}
                         </div>
@@ -419,7 +496,11 @@ export function QuestionnaireClient({ token }: { token: string }) {
                                       value: checked ? null : opt.value,
                                     })
                                   }
-                                  className="flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-60"
+                                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                                    checked
+                                      ? "border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 shadow-sm"
+                                      : "hover:bg-muted/30"
+                                  }`}
                                 >
                                   <span
                                     className={`size-4 rounded-full border ${
@@ -429,7 +510,9 @@ export function QuestionnaireClient({ token }: { token: string }) {
                                     }`}
                                     aria-hidden
                                   />
-                                  <span className="select-none">{opt.label}</span>
+                                  <span className={`select-none ${checked ? "font-medium text-foreground" : ""}`}>
+                                    {opt.label}
+                                  </span>
                                 </button>
                               );
                             })}
@@ -460,7 +543,11 @@ export function QuestionnaireClient({ token }: { token: string }) {
                                   return (
                                     <label
                                       key={opt.value}
-                                      className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm hover:bg-muted/30"
+                                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${
+                                        checked
+                                          ? "border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 shadow-sm"
+                                          : "hover:bg-muted/30"
+                                      }`}
                                     >
                                       <Checkbox
                                         checked={checked}
@@ -476,7 +563,9 @@ export function QuestionnaireClient({ token }: { token: string }) {
                                           });
                                         }}
                                       />
-                                      <span className="select-none">{opt.label}</span>
+                                      <span className={`select-none ${checked ? "font-medium text-foreground" : ""}`}>
+                                        {opt.label}
+                                      </span>
                                     </label>
                                   );
                                 })}
@@ -555,7 +644,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
                   onClick={async () => {
                     try {
                       setSaveState({ kind: "saving" });
-                      const now = await saveHybrid(companyName, answers);
+                      const now = await saveHybrid(companyName, contactName, contactPhone, answers);
                       setSaveState({ kind: "saved", at: now });
                     } catch (e) {
                       console.error(e);
@@ -571,6 +660,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
                   onClick={async () => {
                     try {
                       const normalizedCompanyName = companyName.trim();
+                      const normalizedContactName = contactName.trim();
+                      const normalizedContactPhone = contactPhone.trim();
                       if (!normalizedCompanyName) {
                         setSaveState({ kind: "error", message: "提交前请先填写公司名称" });
                         return;
@@ -580,6 +671,8 @@ export function QuestionnaireClient({ token }: { token: string }) {
                         const now = new Date();
                         saveDraft(config, token, {
                           companyName: normalizedCompanyName,
+                          contactName: normalizedContactName,
+                          contactPhone: normalizedContactPhone,
                           answers,
                           savedAt: now.toISOString(),
                           submittedAt: now.toISOString(),
@@ -590,13 +683,20 @@ export function QuestionnaireClient({ token }: { token: string }) {
                         const res = await fetch(`/api/checkups/${token}/submit`, {
                           method: "POST",
                           headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ companyName: normalizedCompanyName, answers }),
+                          body: JSON.stringify({
+                            companyName: normalizedCompanyName,
+                            contactName: normalizedContactName,
+                            contactPhone: normalizedContactPhone,
+                            answers,
+                          }),
                         });
                         if (!res.ok) {
                           if (!config) throw new Error("submit failed");
                           const now = new Date();
                           saveDraft(config, token, {
                             companyName: normalizedCompanyName,
+                            contactName: normalizedContactName,
+                            contactPhone: normalizedContactPhone,
                             answers,
                             savedAt: now.toISOString(),
                             submittedAt: now.toISOString(),
