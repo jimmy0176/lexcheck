@@ -1,6 +1,7 @@
 import path from "node:path";
 import { unlink } from "node:fs/promises";
 import { NextResponse } from "next/server";
+import { requireLawyerApi } from "@/lib/auth";
 import {
   MAX_ATTACHMENT_FILES,
   saveUploadFile,
@@ -26,6 +27,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   try {
     const kindFilter = parseKindParam(new URL(req.url).searchParams.get("kind"));
@@ -67,6 +71,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   try {
     const form = await req.formData();
@@ -133,6 +140,9 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   try {
     const kindFilter = parseKindParam(new URL(req.url).searchParams.get("kind"));

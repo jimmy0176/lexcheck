@@ -272,7 +272,7 @@ export function WorkspaceSettingsButtons({
   }
 
   const darkGhostBtn =
-    "w-full justify-start border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white";
+    "w-full justify-start border-0 bg-transparent text-white/60 hover:bg-sidebar-accent hover:text-white";
 
   return (
     <div className="space-y-2">

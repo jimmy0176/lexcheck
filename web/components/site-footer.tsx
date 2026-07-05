@@ -41,13 +41,8 @@ export function SiteFooter() {
             </div>
             <ul className="mt-3 space-y-2 text-sm">
               <li>
-                <Link href="/login/user" className="text-foreground/90 hover:text-foreground">
-                  用户登录
-                </Link>
-              </li>
-              <li>
-                <Link href="/login/lawyer" className="text-foreground/90 hover:text-foreground">
-                  律师登录
+                <Link href="/login" className="text-foreground/90 hover:text-foreground">
+                  登录
                 </Link>
               </li>
             </ul>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,10 @@ export async function GET(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+  const user = await getSessionUser();
+  if (!user || user.role !== "client") {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   try {
     const prisma = await getPrisma();
     const checkup = await prisma.checkup.findUnique({ where: { token } });
@@ -27,6 +32,10 @@ export async function GET(
         savedAt: null,
         submittedAt: null,
       });
+    }
+
+    if (checkup.clientId !== user.id) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
 
     return NextResponse.json({
@@ -60,6 +69,10 @@ export async function PATCH(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+  const user = await getSessionUser();
+  if (!user || user.role !== "client") {
+    return NextResponse.json({ ok: false, message: "unauthorized" }, { status: 401 });
+  }
   const body = (await req.json()) as {
     companyName?: unknown;
     contactName?: unknown;
@@ -74,6 +87,10 @@ export async function PATCH(
 
   try {
     const prisma = await getPrisma();
+    const existing = await prisma.checkup.findUnique({ where: { token } });
+    if (existing && existing.clientId !== user.id) {
+      return NextResponse.json({ ok: false, message: "forbidden" }, { status: 403 });
+    }
     const checkup = await prisma.checkup.upsert({
       where: { token },
       create: {
@@ -84,6 +101,7 @@ export async function PATCH(
         status: "draft",
         answersJson: answers,
         savedAt: now,
+        clientId: user.id,
       },
       update: {
         companyName,

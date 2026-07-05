@@ -58,8 +58,7 @@ function safeBaseName(raw: string) {
   return t || "快速体检报告";
 }
 
-function timeSuffix() {
-  const d = new Date();
+function timeSuffix(d: Date) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   const hh = String(d.getHours()).padStart(2, "0");
@@ -72,7 +71,7 @@ export function downloadQuickExamMarkdown(text: string, baseName: string) {
   triggerDownload(blob, `${safeBaseName(baseName)}.md`);
 }
 
-export async function downloadQuickExamDocx(text: string, baseName: string) {
+export async function downloadQuickExamDocx(text: string, baseName: string, generatedAt: Date = new Date()) {
   const { Document, Packer, Paragraph, TextRun } = await import("docx");
   const fixed = fixGfmTablesForDocx(text);
   const { children, stats } = markdownToDocxChildren(fixed);
@@ -128,7 +127,7 @@ export async function downloadQuickExamDocx(text: string, baseName: string) {
     ],
   });
   const blob = await Packer.toBlob(doc);
-  triggerDownload(blob, `${safeBaseName(baseName)}${timeSuffix()}.docx`);
+  triggerDownload(blob, `${safeBaseName(baseName)}${timeSuffix(generatedAt)}.docx`);
 }
 
 /** 将报告区域截图为多页 PDF（支持中文显示） */

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSessionUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,10 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params;
+  const user = await getSessionUser();
+  if (!user || user.role !== "client") {
+    return NextResponse.json({ ok: false, message: "unauthorized" }, { status: 401 });
+  }
   const body = (await req.json()) as {
     companyName?: unknown;
     contactName?: unknown;
@@ -33,6 +38,10 @@ export async function POST(
 
   try {
     const prisma = await getPrisma();
+    const existing = await prisma.checkup.findUnique({ where: { token } });
+    if (existing && existing.clientId !== user.id) {
+      return NextResponse.json({ ok: false, message: "forbidden" }, { status: 403 });
+    }
     const checkup = await prisma.checkup.upsert({
       where: { token },
       create: {
@@ -44,6 +53,7 @@ export async function POST(
         answersJson: answers,
         savedAt: now,
         submittedAt: now,
+        clientId: user.id,
       },
       update: {
         companyName,

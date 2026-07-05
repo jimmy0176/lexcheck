@@ -29,6 +29,50 @@ enum QuickExamJobStatus {
   failed
 }
 
+enum UserRole {
+  lawyer
+  client
+}
+
+enum RegistrationMode {
+  open
+  invite_only
+}
+
+model User {
+  id          String   @id @default(cuid())
+  phone       String   @unique
+  role        UserRole
+  isAdmin     Boolean  @default(false)
+  name        String?
+  companyName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  sessions    Session[]
+  checkups    Checkup[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+/** 单例配置行，id 固定为 "singleton"。 */
+model AuthSettings {
+  id                         String           @id @default("singleton")
+  tempCodeEnabled            Boolean          @default(true)
+  tempCode                   String?          @default("888888")
+  registrationMode           RegistrationMode @default(invite_only)
+  inviteCode                 String?
+  questionnaireCooldownHours Int              @default(24)
+  updatedAt                  DateTime         @updatedAt
+}
+
 model Checkup {
   id          String            @id @default(cuid())
   token       String            @unique
@@ -41,9 +85,13 @@ model Checkup {
   submittedAt DateTime?
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+  clientId    String?
+  client      User?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
   attachments CheckupAttachment[]
   workspace   CheckupWorkspace?
   quickExamJobs QuickExamReportJob[]
+
+  @@index([clientId, submittedAt])
 }
 
 model QuickExamReportJob {

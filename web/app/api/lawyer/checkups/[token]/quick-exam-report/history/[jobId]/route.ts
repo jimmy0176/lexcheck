@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireLawyerApi } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -6,6 +7,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ token: string; jobId: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token, jobId } = await params;
   try {
     const { prisma } = await import("@/lib/prisma");
@@ -26,6 +30,9 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ token: string; jobId: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token, jobId } = await params;
   try {
     const { prisma } = await import("@/lib/prisma");

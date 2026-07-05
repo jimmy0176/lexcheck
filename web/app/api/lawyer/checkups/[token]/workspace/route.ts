@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireLawyerApi } from "@/lib/auth";
 import {
   normalizeProgress,
   normalizeWorkspaceInput,
@@ -12,6 +13,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   try {
     const { prisma } = await import("@/lib/prisma");
@@ -96,6 +100,9 @@ export async function PUT(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   try {
     const body = (await req.json()) as {

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireLawyerApi } from "@/lib/auth";
 import { getProviderById } from "@/lib/llm-providers";
 
 export const runtime = "nodejs";
@@ -16,6 +17,9 @@ function normalizeBase(url: string) {
 }
 
 export async function POST(req: Request) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   let body: Body;
   try {
     body = (await req.json()) as Body;

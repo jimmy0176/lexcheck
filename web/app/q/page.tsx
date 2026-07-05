@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
+import { getSessionUser } from "@/lib/auth";
+import { ClientAuthGate } from "@/components/auth/ClientAuthGate";
 
 export default async function QuestionnaireEntryPage() {
+  const user = await getSessionUser();
+  if (!user || user.role !== "client") {
+    return <ClientAuthGate />;
+  }
+
   let drafts: Array<{
     id: string;
     token: string;
@@ -13,7 +20,7 @@ export default async function QuestionnaireEntryPage() {
   try {
     const { prisma } = await import("@/lib/prisma");
     drafts = await prisma.checkup.findMany({
-      where: { status: "draft" },
+      where: { status: "draft", clientId: user.id },
       orderBy: { updatedAt: "desc" },
       take: 30,
     });

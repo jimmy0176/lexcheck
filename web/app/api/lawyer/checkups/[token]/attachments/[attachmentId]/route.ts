@@ -1,5 +1,6 @@
 import { readFile, unlink } from "node:fs/promises";
 import { NextResponse } from "next/server";
+import { requireLawyerApi } from "@/lib/auth";
 import { extractAttachmentText } from "@/lib/extract-attachment-text";
 import { getProviderById } from "@/lib/llm-providers";
 
@@ -92,6 +93,9 @@ export async function GET(
   _req: Request,
   { params }: { params: Promise<{ token: string; attachmentId: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token, attachmentId } = await params;
   try {
     const { prisma } = await import("@/lib/prisma");
@@ -121,6 +125,9 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ token: string; attachmentId: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token, attachmentId } = await params;
   try {
     let body: {
@@ -202,6 +209,9 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ token: string; attachmentId: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token, attachmentId } = await params;
   try {
     const { prisma } = await import("@/lib/prisma");

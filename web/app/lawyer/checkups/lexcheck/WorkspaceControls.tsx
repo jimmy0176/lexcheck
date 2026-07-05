@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { FileSearch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -14,119 +12,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { LLM_PROVIDERS, getProviderById } from "@/lib/llm-providers";
 
-type CheckupItem = {
-  id: string;
-  token: string;
-  companyName: string | null;
-  status: "draft" | "submitted";
-  savedAtLabel: string;
-};
-
 const darkGhostBtn =
-  "w-full justify-start border-0 bg-transparent text-base text-white hover:bg-sidebar-accent hover:text-white";
+  "w-full justify-start border-0 bg-transparent text-base text-white/60 hover:bg-sidebar-accent hover:text-white";
 
-export function QuestionnairePickerButton({
-  checkups,
-  selectedToken,
-  autoOpen = false,
-  buttonLabel = "切换问卷",
-  iconOnly = false,
-}: {
-  checkups: CheckupItem[];
-  selectedToken?: string;
-  autoOpen?: boolean;
-  buttonLabel?: string;
-  iconOnly?: boolean;
-}) {
-  const router = useRouter();
-  const [open, setOpen] = useState(autoOpen);
-  const [keyword, setKeyword] = useState("");
-
-  const filtered = useMemo(() => {
-    const q = keyword.trim().toLowerCase();
-    if (!q) return checkups;
-    return checkups.filter((item) => {
-      const company = (item.companyName ?? "").toLowerCase();
-      return item.token.toLowerCase().includes(q) || company.includes(q);
-    });
-  }, [checkups, keyword]);
-
-  return (
-    <AlertDialog open={open} onOpenChange={setOpen}>
-      {iconOnly ? (
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          className="shrink-0 border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white"
-          title="选择问卷"
-          aria-label="选择问卷"
-          onClick={() => setOpen(true)}
-        >
-          <FileSearch className="h-4 w-4" />
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white"
-          onClick={() => setOpen(true)}
-        >
-          {buttonLabel}
-        </Button>
-      )}
-      <AlertDialogContent className="max-w-3xl p-0">
-        <AlertDialogHeader className="border-b px-6 py-4">
-          <AlertDialogTitle>选择企业问卷</AlertDialogTitle>
-        </AlertDialogHeader>
-        <div className="space-y-3 px-6 py-4">
-          <input
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            placeholder="搜索 token 或公司名称"
-            className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-          <div className="max-h-[50vh] space-y-2 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="rounded-md border p-3 text-sm text-muted-foreground">未找到匹配问卷。</div>
-            ) : (
-              filtered.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    router.push(`/lawyer/checkups/lexcheck?token=${encodeURIComponent(item.token)}`);
-                    setOpen(false);
-                  }}
-                  className={`w-full rounded-md border p-3 text-left transition hover:bg-muted/30 ${
-                    item.token === selectedToken ? "border-primary bg-primary/5" : ""
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="truncate text-sm font-medium">
-                      {item.companyName?.trim() ? item.companyName : "未填写公司名称"}
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {item.status === "submitted" ? "已提交" : "草稿"}
-                    </span>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">token: {item.token}</div>
-                  <div className="mt-1 text-xs text-muted-foreground">更新：{item.savedAtLabel}</div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-        <AlertDialogFooter className="border-t px-6 py-4">
-          <AlertDialogCancel>关闭</AlertDialogCancel>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
-export function WorkspaceSettingsButtons() {
+export function WorkspaceSettingsButtons({ token }: { token?: string }) {
   const [modelOpen, setModelOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -205,6 +94,20 @@ export function WorkspaceSettingsButtons() {
 
   return (
     <div className="space-y-2">
+      <Button
+        type="button"
+        variant="ghost"
+        className={darkGhostBtn}
+        disabled={!token}
+        onClick={() => {
+          if (!token) return;
+          window.dispatchEvent(
+            new CustomEvent("lexcheck:open-report-settings", { detail: { token } })
+          );
+        }}
+      >
+        提示词与模板设置
+      </Button>
       <Button type="button" variant="ghost" className={darkGhostBtn} onClick={() => setModelOpen(true)}>
         大模型设置
       </Button>

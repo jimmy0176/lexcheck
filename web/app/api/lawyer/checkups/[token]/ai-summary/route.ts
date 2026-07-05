@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireLawyerApi } from "@/lib/auth";
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import type { Answers, QuestionnaireConfig } from "@/lib/questionnaire-types";
@@ -20,6 +21,9 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   const mode = new URL(req.url).searchParams.get("mode") ?? "rules";
   const includeAi = mode === "full";

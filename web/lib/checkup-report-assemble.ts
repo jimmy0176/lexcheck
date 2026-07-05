@@ -28,7 +28,20 @@ export function computePriorityLabel(
   return "高";
 }
 
-type RiskItem = {
+export type HealthLabel = "优" | "良" | "中" | "差";
+
+/** 总分整体评价：复用优先级阈值，但按"健康程度"而非"风险优先级"措辞，避免总分行读起来像风险提示。 */
+export function computeHealthLabel(
+  ratio: number,
+  t: PriorityThresholds = DEFAULT_PRIORITY_THRESHOLDS
+): HealthLabel {
+  if (ratio >= t.low) return "优";
+  if (ratio >= t.mid) return "良";
+  if (ratio >= t.midHigh) return "中";
+  return "差";
+}
+
+export type RiskItem = {
   qid: string;
   question: string;
   riskText: string;
@@ -46,7 +59,11 @@ export type ModuleAssembly = {
   bodyMarkdown: string;
 };
 
-/** 门槛题触发跳过时，标记哪些子题留空可按"不涉及"自动计满分（与问卷填写页同一套规则）。 */
+/**
+ * 标记哪些计分题留空时按"不涉及"自动计满分。两种来源：
+ * 1. 门槛题触发跳过（与问卷填写页同一套规则）；
+ * 2. 本节所有计分题均未作答——视为该节对企业不适用，整节按满分处理，不生成风险项。
+ */
 function computeSkippedQids(section: QuestionnaireSection, answers: Answers): Set<string> {
   const skipped = new Set<string>();
   for (const q of section.questions) {
@@ -56,6 +73,16 @@ function computeSkippedQids(section: QuestionnaireSection, answers: Answers): Se
       for (const sq of q.skipGate.skipQids) skipped.add(sq);
     }
   }
+
+  const scoredQids = section.questions.filter((q) => q.type === "single_choice").map((q) => q.qid);
+  const anyAnswered = scoredQids.some((qid) => {
+    const a = answers[qid];
+    return a?.kind === "single_choice" && !!a.value;
+  });
+  if (!anyAnswered) {
+    for (const qid of scoredQids) skipped.add(qid);
+  }
+
   return skipped;
 }
 
@@ -85,14 +112,11 @@ function resolveQuestionScore(
   };
 }
 
-/** 单个章节拼装为一个报告模块；本节所有题目均满分（无风险项）时返回 null，整节跳过。 */
-export function assembleSection(
+/** 逐题计分并收集风险项；供 assembleSection 与 computeTotalScore 共用，避免重复计分逻辑。 */
+function computeSectionScore(
   section: QuestionnaireSection,
-  answers: Answers,
-  thresholds: PriorityThresholds = DEFAULT_PRIORITY_THRESHOLDS
-): ModuleAssembly | null {
-  if (typeof section.maxScore !== "number") return null;
-
+  answers: Answers
+): { score: number; riskItems: RiskItem[] } {
   const skipped = computeSkippedQids(section, answers);
   let score = 0;
   const riskItems: RiskItem[] = [];
@@ -111,6 +135,18 @@ export function assembleSection(
     }
   }
 
+  return { score, riskItems };
+}
+
+/** 单个章节拼装为一个报告模块；本节所有题目均满分（无风险项）时返回 null，整节跳过。 */
+export function assembleSection(
+  section: QuestionnaireSection,
+  answers: Answers,
+  thresholds: PriorityThresholds = DEFAULT_PRIORITY_THRESHOLDS
+): ModuleAssembly | null {
+  if (typeof section.maxScore !== "number") return null;
+
+  const { score, riskItems } = computeSectionScore(section, answers);
   if (riskItems.length === 0) return null;
 
   const maxScore = section.maxScore;
@@ -125,6 +161,30 @@ export function assembleSection(
     .join("\n\n");
 
   return { sectionId: section.sectionId, title: section.title, score, maxScore, ratio, priority, riskItems, bodyMarkdown };
+}
+
+export type TotalScoreResult = {
+  score: number;
+  maxScore: number;
+  ratio: number;
+  healthLabel: HealthLabel;
+};
+
+/** 全部章节汇总总分，用于报告开头呈现企业总体法律健康程度。不适用章节已在计分阶段按满分处理。 */
+export function computeTotalScore(
+  config: QuestionnaireConfig,
+  answers: Answers,
+  thresholds: PriorityThresholds = DEFAULT_PRIORITY_THRESHOLDS
+): TotalScoreResult {
+  let score = 0;
+  let maxScore = 0;
+  for (const section of config.sections) {
+    if (typeof section.maxScore !== "number") continue;
+    score += computeSectionScore(section, answers).score;
+    maxScore += section.maxScore;
+  }
+  const ratio = maxScore > 0 ? score / maxScore : 1;
+  return { score, maxScore, ratio, healthLabel: computeHealthLabel(ratio, thresholds) };
 }
 
 /** 按问卷章节原有顺序拼装全部模块；无风险的章节自动跳过。 */

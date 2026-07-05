@@ -1,6 +1,7 @@
 import path from "node:path";
 import { readFile } from "node:fs/promises";
 import { NextResponse } from "next/server";
+import { requireLawyerApi } from "@/lib/auth";
 import type { Answers, QuestionnaireConfig } from "@/lib/questionnaire-types";
 import { generateDeepSeekAdvice, generateRuleAdvice } from "@/lib/ai-advice";
 
@@ -16,6 +17,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   try {
     const body = (await req.json()) as { noteInstruction?: string };

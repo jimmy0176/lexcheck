@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { generateCheckupReport } from "@/lib/checkup-report-generate";
+import { requireLawyerApi } from "@/lib/auth";
+import { generateCheckupReport, type ReportGenerationMode } from "@/lib/checkup-report-generate";
 import { DEFAULT_PRIORITY_THRESHOLDS, type PriorityThresholds } from "@/lib/checkup-report-assemble";
 import { getProviderById } from "@/lib/llm-providers";
 
@@ -23,6 +24,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const __lawyer = await requireLawyerApi();
+  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { token } = await params;
   try {
     const body = (await req.json()) as {
@@ -33,6 +37,7 @@ export async function POST(
       apiKey?: string;
       baseUrlOverride?: string;
       thresholds?: unknown;
+      mode?: string;
     };
     const promptMd = (body.promptMd ?? "").trim();
     const outputMd = (body.outputMd ?? "").trim();
@@ -41,6 +46,7 @@ export async function POST(
     const apiKey = (body.apiKey ?? "").trim();
     const baseUrlOverride = (body.baseUrlOverride ?? "").trim();
     const thresholds = normalizeThresholds(body.thresholds);
+    const mode: ReportGenerationMode = body.mode === "fusion" ? "fusion" : "concat";
 
     const provider = getProviderById(providerId);
     const base = normalizeBase(baseUrlOverride || provider?.baseUrl || "");
@@ -79,6 +85,7 @@ export async function POST(
       apiKey,
       model,
       providerId,
+      mode,
       thresholds,
     });
 
