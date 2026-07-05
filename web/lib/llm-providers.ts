@@ -15,25 +15,26 @@ export const LLM_PROVIDERS: LlmProviderDef[] = [
     id: "dashscope",
     label: "阿里云通义千问（百炼兼容模式）",
     baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    models: ["qwen-turbo", "qwen-plus", "qwen-max", "qwen-long", "qwen2.5-72b-instruct"],
+    models: ["qwen-plus", "qwen-turbo", "qwen-max", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-flash"],
   },
   {
     id: "deepseek",
     label: "DeepSeek",
     baseUrl: "https://api.deepseek.com/v1",
-    models: ["deepseek-chat", "deepseek-reasoner"],
+    // deepseek-chat/deepseek-reasoner 将于 2026-07-24 弃用，请优先使用 v4 系列。
+    models: ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"],
   },
   {
     id: "zhipu",
     label: "智谱 AI（GLM，OpenAPI）",
     baseUrl: "https://open.bigmodel.cn/api/paas/v4",
-    models: ["glm-4", "glm-4-flash", "glm-4-air", "glm-4-airx"],
+    models: ["glm-5.2", "glm-5.1", "glm-5", "glm-4.7-flash", "glm-4.6", "glm-4-flash-250414"],
   },
   {
     id: "moonshot",
     label: "月之暗面 Moonshot",
     baseUrl: "https://api.moonshot.cn/v1",
-    models: ["moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
+    models: ["kimi-k2.7-code", "kimi-k2.6", "kimi-k2.5", "moonshot-v1-8k", "moonshot-v1-32k", "moonshot-v1-128k"],
   },
   {
     id: "custom",

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { LLM_PROVIDERS, getProviderById } from "@/lib/llm-providers";
 
 const inputCls = "h-9 w-full rounded-md border bg-background px-2.5 text-sm";
 
@@ -12,7 +13,98 @@ type SettingsState = {
   registrationMode: string;
   inviteCode: string;
   questionnaireCooldownHours: number;
+  sharedLlmProviderId: string;
+  sharedLlmModel: string;
+  sharedLlmApiKey: string;
+  sharedLlmBaseUrl: string;
+  backupLlmProviderId: string;
+  backupLlmModel: string;
+  backupLlmApiKey: string;
+  backupLlmBaseUrl: string;
 };
+
+function LlmProfileFields({
+  providerId,
+  model,
+  apiKey,
+  baseUrl,
+  onChange,
+}: {
+  providerId: string;
+  model: string;
+  apiKey: string;
+  baseUrl: string;
+  onChange: (next: { providerId?: string; model?: string; apiKey?: string; baseUrl?: string }) => void;
+}) {
+  const provider = getProviderById(providerId);
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <label className="block space-y-1">
+        <span className="text-sm text-muted-foreground">供应商</span>
+        <select
+          value={providerId}
+          onChange={(e) => {
+            const pid = e.target.value;
+            const p = getProviderById(pid);
+            onChange({ providerId: pid, model: p?.models?.[0] ?? "" });
+          }}
+          className={inputCls}
+        >
+          <option value="">未配置</option>
+          {LLM_PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {providerId === "custom" ? (
+        <label className="block space-y-1">
+          <span className="text-sm text-muted-foreground">Base URL</span>
+          <input value={baseUrl} onChange={(e) => onChange({ baseUrl: e.target.value })} className={inputCls} />
+        </label>
+      ) : (
+        <div />
+      )}
+      <label className="block space-y-1">
+        <span className="text-sm text-muted-foreground">模型名称</span>
+        {provider?.models?.length ? (
+          <select
+            value={provider.models.includes(model) ? model : "__custom__"}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v !== "__custom__") onChange({ model: v });
+            }}
+            className={inputCls}
+          >
+            {provider.models.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+            <option value="__custom__">其他（下方手填）</option>
+          </select>
+        ) : null}
+        <input
+          value={model}
+          onChange={(e) => onChange({ model: e.target.value })}
+          placeholder="模型名称"
+          className={`${inputCls} ${provider?.models?.length ? "mt-2" : ""}`}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm text-muted-foreground">API Key</span>
+        <input
+          value={apiKey}
+          onChange={(e) => onChange({ apiKey: e.target.value })}
+          type="password"
+          autoComplete="off"
+          className={inputCls}
+        />
+      </label>
+    </div>
+  );
+}
 
 type UserRow = {
   id: string;
@@ -224,6 +316,62 @@ export function AdminAccountsClient({
             className={inputCls}
           />
         </label>
+
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" disabled={savingSettings} onClick={() => void saveSettings()}>
+            {savingSettings ? "保存中…" : "保存设置"}
+          </Button>
+          {settingsMsg ? <span className="text-sm text-muted-foreground">{settingsMsg}</span> : null}
+          {settingsErr ? <span className="text-sm text-destructive">{settingsErr}</span> : null}
+        </div>
+      </section>
+
+      <section className="space-y-4 rounded-md border p-4">
+        <div>
+          <h2 className="text-base font-medium">大模型 Key 优先级</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            生成报告时按顺序尝试：律师本人在工作台设置的 Key → 下方&ldquo;共用 Key&rdquo; → 下方&ldquo;共用备用 Key&rdquo;。
+            三个都不可用或调用失败时，退化为不调用大模型的纯拼接版报告。
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">共用 Key（第二优先级）</h3>
+          <LlmProfileFields
+            providerId={settings.sharedLlmProviderId}
+            model={settings.sharedLlmModel}
+            apiKey={settings.sharedLlmApiKey}
+            baseUrl={settings.sharedLlmBaseUrl}
+            onChange={(next) =>
+              setSettings((s) => ({
+                ...s,
+                sharedLlmProviderId: next.providerId ?? s.sharedLlmProviderId,
+                sharedLlmModel: next.model ?? s.sharedLlmModel,
+                sharedLlmApiKey: next.apiKey ?? s.sharedLlmApiKey,
+                sharedLlmBaseUrl: next.baseUrl ?? s.sharedLlmBaseUrl,
+              }))
+            }
+          />
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">共用备用 Key（第三优先级）</h3>
+          <LlmProfileFields
+            providerId={settings.backupLlmProviderId}
+            model={settings.backupLlmModel}
+            apiKey={settings.backupLlmApiKey}
+            baseUrl={settings.backupLlmBaseUrl}
+            onChange={(next) =>
+              setSettings((s) => ({
+                ...s,
+                backupLlmProviderId: next.providerId ?? s.backupLlmProviderId,
+                backupLlmModel: next.model ?? s.backupLlmModel,
+                backupLlmApiKey: next.apiKey ?? s.backupLlmApiKey,
+                backupLlmBaseUrl: next.baseUrl ?? s.backupLlmBaseUrl,
+              }))
+            }
+          />
+        </div>
 
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" disabled={savingSettings} onClick={() => void saveSettings()}>

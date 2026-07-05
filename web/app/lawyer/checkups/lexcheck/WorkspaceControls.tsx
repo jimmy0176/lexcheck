@@ -30,31 +30,43 @@ export function WorkspaceSettingsButtons({ token }: { token?: string }) {
   const currentProvider = useMemo(() => getProviderById(providerId), [providerId]);
 
   useEffect(() => {
-    const rawPid = localStorage.getItem("lexcheck:model:providerId") ?? "dashscope";
-    const pid = getProviderById(rawPid) ? rawPid : "dashscope";
-    const model = localStorage.getItem("lexcheck:model:name") ?? "";
-    const key = localStorage.getItem("lexcheck:model:key") ?? "";
-    const custom = localStorage.getItem("lexcheck:model:customBaseUrl") ?? "";
-    setProviderId(pid);
-    setApiKey(key);
-    setCustomBaseUrl(custom);
-    const p = getProviderById(pid);
-    const defaultModel = p?.models?.[0] ?? "qwen-turbo";
-    setModelName(model || defaultModel);
+    fetch("/api/lawyer/me/llm-profile")
+      .then((res) => res.json())
+      .then((json: { profile?: { providerId: string; model: string; apiKey: string; baseUrl: string } }) => {
+        const profile = json.profile;
+        if (!profile) return;
+        const pid = getProviderById(profile.providerId) ? profile.providerId : "dashscope";
+        setProviderId(pid);
+        setApiKey(profile.apiKey);
+        setCustomBaseUrl(profile.baseUrl);
+        const p = getProviderById(pid);
+        const defaultModel = p?.models?.[0] ?? "qwen-turbo";
+        setModelName(profile.model || defaultModel);
+      })
+      .catch(() => {
+        // ignore：保持默认值
+      });
   }, []);
 
-  function saveModelProfile() {
-    localStorage.setItem("lexcheck:model:providerId", providerId);
-    localStorage.setItem(
-      "lexcheck:model:vendor",
-      currentProvider?.label ?? providerId
-    );
-    localStorage.setItem("lexcheck:model:name", modelName.trim());
-    localStorage.setItem("lexcheck:model:key", apiKey.trim());
-    localStorage.setItem("lexcheck:model:customBaseUrl", customBaseUrl.trim());
-    setMessage("大模型设置已保存到当前浏览器。");
-    setError(null);
-    setModelOpen(false);
+  async function saveModelProfile() {
+    try {
+      const res = await fetch("/api/lawyer/me/llm-profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId,
+          model: modelName.trim(),
+          apiKey: apiKey.trim(),
+          baseUrl: customBaseUrl.trim(),
+        }),
+      });
+      if (!res.ok) throw new Error("保存失败");
+      setMessage("大模型设置已保存到当前账号，登录本账号的任意设备均可使用。");
+      setError(null);
+      setModelOpen(false);
+    } catch (e) {
+      setError(String(e));
+    }
   }
 
   async function testConnection() {
@@ -128,7 +140,8 @@ export function WorkspaceSettingsButtons({ token }: { token?: string }) {
           <p className="text-xs text-muted-foreground">
             连通性测试使用 OpenAI 兼容接口{" "}
             <code className="rounded bg-muted px-1 py-0.5 text-[11px]">POST /chat/completions</code>
-            ；密钥仅保存在本机浏览器，测试请求经服务端转发。
+            ；此处设置的 Key 关联到当前登录账号，登录本账号的任意设备均可使用，生成报告时优先调用。
+            若未配置或调用失败，会依次尝试管理员配置的共用 Key、共用备用 Key。
           </p>
           <div className="grid gap-3">
             <label className="space-y-1">
@@ -202,7 +215,7 @@ export function WorkspaceSettingsButtons({ token }: { token?: string }) {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="h-10 w-full rounded-md border bg-background px-3 text-sm"
-                placeholder="输入 API Key（本地浏览器保存）"
+                placeholder="输入 API Key（保存到当前账号）"
                 type="password"
                 autoComplete="off"
               />
@@ -223,7 +236,7 @@ export function WorkspaceSettingsButtons({ token }: { token?: string }) {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <Button type="button" onClick={saveModelProfile}>
+            <Button type="button" onClick={() => void saveModelProfile()}>
               保存设置
             </Button>
           </AlertDialogFooter>

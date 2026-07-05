@@ -21,6 +21,14 @@ export async function PATCH(req: Request) {
       registrationMode?: string;
       inviteCode?: string;
       questionnaireCooldownHours?: number;
+      sharedLlmProviderId?: string;
+      sharedLlmModel?: string;
+      sharedLlmApiKey?: string;
+      sharedLlmBaseUrl?: string;
+      backupLlmProviderId?: string;
+      backupLlmModel?: string;
+      backupLlmApiKey?: string;
+      backupLlmBaseUrl?: string;
     };
 
     const data: Record<string, unknown> = {};
@@ -40,6 +48,14 @@ export async function PATCH(req: Request) {
       }
       data.questionnaireCooldownHours = Math.round(body.questionnaireCooldownHours);
     }
+    if (typeof body.sharedLlmProviderId === "string") data.sharedLlmProviderId = body.sharedLlmProviderId.trim() || null;
+    if (typeof body.sharedLlmModel === "string") data.sharedLlmModel = body.sharedLlmModel.trim() || null;
+    if (typeof body.sharedLlmApiKey === "string") data.sharedLlmApiKey = body.sharedLlmApiKey.trim() || null;
+    if (typeof body.sharedLlmBaseUrl === "string") data.sharedLlmBaseUrl = body.sharedLlmBaseUrl.trim() || null;
+    if (typeof body.backupLlmProviderId === "string") data.backupLlmProviderId = body.backupLlmProviderId.trim() || null;
+    if (typeof body.backupLlmModel === "string") data.backupLlmModel = body.backupLlmModel.trim() || null;
+    if (typeof body.backupLlmApiKey === "string") data.backupLlmApiKey = body.backupLlmApiKey.trim() || null;
+    if (typeof body.backupLlmBaseUrl === "string") data.backupLlmBaseUrl = body.backupLlmBaseUrl.trim() || null;
 
     const { prisma } = await import("@/lib/prisma");
     const settings = await prisma.authSettings.update({ where: { id: "singleton" }, data });

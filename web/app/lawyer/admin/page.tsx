@@ -21,6 +21,14 @@ export default async function LawyerAdminPage() {
               registrationMode: settings.registrationMode,
               inviteCode: settings.inviteCode ?? "",
               questionnaireCooldownHours: settings.questionnaireCooldownHours,
+              sharedLlmProviderId: settings.sharedLlmProviderId ?? "",
+              sharedLlmModel: settings.sharedLlmModel ?? "",
+              sharedLlmApiKey: settings.sharedLlmApiKey ?? "",
+              sharedLlmBaseUrl: settings.sharedLlmBaseUrl ?? "",
+              backupLlmProviderId: settings.backupLlmProviderId ?? "",
+              backupLlmModel: settings.backupLlmModel ?? "",
+              backupLlmApiKey: settings.backupLlmApiKey ?? "",
+              backupLlmBaseUrl: settings.backupLlmBaseUrl ?? "",
             }}
             initialUsers={users.map((u) => ({
               id: u.id,

@@ -7,7 +7,6 @@ import {
   CHECKUP_REPORT_SECTION_KEY,
   CHECKUP_REPORT_TEMPLATE_VERSION,
 } from "@/lib/dd-segment-default-templates";
-import { getProviderById } from "@/lib/llm-providers";
 import { DEFAULT_PRIORITY_THRESHOLDS, PRIORITY_THRESHOLDS_STORAGE_KEY } from "@/lib/checkup-report-assemble";
 import type { Answers, QuestionnaireSection } from "@/lib/questionnaire-types";
 import { QuestionnaireCompactText } from "./QuestionnaireCompactText";
@@ -208,16 +207,6 @@ export function CheckupReportPanel({
         localStorage.getItem(segmentPromptStorageKey(token, CHECKUP_REPORT_SECTION_KEY)) ?? "";
       const outputFull =
         localStorage.getItem(segmentOutputStorageKey(token, CHECKUP_REPORT_SECTION_KEY)) ?? "";
-      const providerId = (localStorage.getItem("lexcheck:model:providerId") ?? "dashscope").trim();
-      const model = (localStorage.getItem("lexcheck:model:name") ?? "").trim();
-      const apiKey = (localStorage.getItem("lexcheck:model:key") ?? "").trim();
-      const customBaseUrl = (localStorage.getItem("lexcheck:model:customBaseUrl") ?? "").trim();
-      const provider = getProviderById(providerId);
-      if (!apiKey) throw new Error("请先在「配置中心 → 大模型设置」填写并保存 API Key");
-      if (!model) throw new Error("请先在「配置中心 → 大模型设置」填写并保存模型名称");
-      if (providerId === "custom" && !customBaseUrl) {
-        throw new Error("当前供应商为自定义，请先填写并保存 Base URL");
-      }
 
       const res = await fetch(`/api/lawyer/checkups/${encodeURIComponent(token)}/checkup-report`, {
         method: "POST",
@@ -225,10 +214,6 @@ export function CheckupReportPanel({
         body: JSON.stringify({
           promptMd: prompt,
           outputMd: outputFull,
-          providerId,
-          model,
-          apiKey,
-          baseUrlOverride: providerId === "custom" ? customBaseUrl : provider?.baseUrl ?? "",
           thresholds: readPriorityThresholds(),
           mode: reportMode,
         }),
@@ -237,6 +222,7 @@ export function CheckupReportPanel({
         ok?: boolean;
         reportText?: string;
         moduleCount?: number;
+        usedAi?: boolean;
         message?: string;
         error?: string;
       };
@@ -257,7 +243,7 @@ export function CheckupReportPanel({
           new CustomEvent("lexcheck:quick-exam-history-updated", { detail: { token } })
         );
       }
-      setMsg("体检报告已生成");
+      setMsg(json.usedAi === false ? "体检报告已生成（未使用大模型，仅拼接预设文案）" : "体检报告已生成");
       setGenStage(null);
     } catch (e) {
       setErr(String(e));

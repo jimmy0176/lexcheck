@@ -50,6 +50,12 @@ model User {
   updatedAt   DateTime @updatedAt
   sessions    Session[]
   checkups    Checkup[]
+
+  /** 律师本人的大模型档案；生成报告时优先使用。 */
+  llmProviderId String?
+  llmModel      String?
+  llmApiKey     String?
+  llmBaseUrl    String?
 }
 
 model Session {
@@ -71,6 +77,18 @@ model AuthSettings {
   inviteCode                 String?
   questionnaireCooldownHours Int              @default(24)
   updatedAt                  DateTime         @updatedAt
+
+  /** 共用 Key（律师本人未配置或调用失败时，第二优先级）。 */
+  sharedLlmProviderId String?
+  sharedLlmModel      String?
+  sharedLlmApiKey     String?
+  sharedLlmBaseUrl    String?
+
+  /** 共用备用 Key（前两者均失败时，第三优先级）。 */
+  backupLlmProviderId String?
+  backupLlmModel      String?
+  backupLlmApiKey     String?
+  backupLlmBaseUrl    String?
 }
 
 model Checkup {

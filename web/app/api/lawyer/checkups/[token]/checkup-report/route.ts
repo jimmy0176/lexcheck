@@ -2,14 +2,9 @@ import { NextResponse } from "next/server";
 import { requireLawyerApi } from "@/lib/auth";
 import { generateCheckupReport, type ReportGenerationMode } from "@/lib/checkup-report-generate";
 import { DEFAULT_PRIORITY_THRESHOLDS, type PriorityThresholds } from "@/lib/checkup-report-assemble";
-import { getProviderById } from "@/lib/llm-providers";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-function normalizeBase(url: string) {
-  return url.trim().replace(/\/+$/, "");
-}
 
 function normalizeThresholds(input: unknown): PriorityThresholds {
   if (!input || typeof input !== "object") return DEFAULT_PRIORITY_THRESHOLDS;
@@ -24,72 +19,34 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
-  const __lawyer = await requireLawyerApi();
-  if (!__lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const lawyer = await requireLawyerApi();
+  if (!lawyer) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const { token } = await params;
   try {
     const body = (await req.json()) as {
       promptMd?: string;
       outputMd?: string;
-      providerId?: string;
-      model?: string;
-      apiKey?: string;
-      baseUrlOverride?: string;
       thresholds?: unknown;
       mode?: string;
     };
     const promptMd = (body.promptMd ?? "").trim();
     const outputMd = (body.outputMd ?? "").trim();
-    const providerId = (body.providerId ?? "").trim();
-    const model = (body.model ?? "").trim();
-    const apiKey = (body.apiKey ?? "").trim();
-    const baseUrlOverride = (body.baseUrlOverride ?? "").trim();
     const thresholds = normalizeThresholds(body.thresholds);
     const mode: ReportGenerationMode = body.mode === "fusion" ? "fusion" : "concat";
 
-    const provider = getProviderById(providerId);
-    const base = normalizeBase(baseUrlOverride || provider?.baseUrl || "");
-    if (!base) {
-      return NextResponse.json(
-        { error: "bad_request", message: "未配置可用 Base URL，请先在大模型设置中保存" },
-        { status: 400 }
-      );
-    }
-    if (!model) {
-      return NextResponse.json(
-        { error: "bad_request", message: "未配置模型名称，请先在大模型设置中保存" },
-        { status: 400 }
-      );
-    }
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "bad_request", message: "未配置 API Key，请先在大模型设置中保存" },
-        { status: 400 }
-      );
-    }
-    if (providerId === "custom" && !baseUrlOverride.trim()) {
-      return NextResponse.json(
-        { error: "bad_request", message: "当前供应商为自定义，请先填写并保存 Base URL" },
-        { status: 400 }
-      );
-    }
-
     const { prisma } = await import("@/lib/prisma");
-    const { reportText, moduleCount } = await generateCheckupReport({
+    const { reportText, moduleCount, usedAi } = await generateCheckupReport({
       prisma,
       token,
+      lawyerId: lawyer.id,
       promptMd,
       outputMd,
-      base,
-      apiKey,
-      model,
-      providerId,
       mode,
       thresholds,
     });
 
-    return NextResponse.json({ ok: true, reportText, moduleCount });
+    return NextResponse.json({ ok: true, reportText, moduleCount, usedAi });
   } catch (e) {
     const msg = String(e);
     if (msg === "Error: not_found") {

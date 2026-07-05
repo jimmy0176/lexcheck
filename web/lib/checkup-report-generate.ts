@@ -11,7 +11,7 @@ import {
   type ModuleAssembly,
   type PriorityThresholds,
 } from "@/lib/checkup-report-assemble";
-import { callChatCompletions, jsonObjectFormatIfSupported } from "@/lib/quick-exam-llm";
+import { resolveLlmProfiles, callChatCompletionsWithFallback } from "@/lib/llm-resolve";
 import { parseJsonLenient } from "@/lib/quick-exam-json";
 
 const REPORT_ISSUER_NAME = "HE Partners";
@@ -79,19 +79,19 @@ async function readQuestionnaireConfig(): Promise<QuestionnaireConfig> {
   return JSON.parse(raw) as QuestionnaireConfig;
 }
 
+const NO_AI_NOTICE =
+  "当前律师账号、管理员共用 Key、共用备用 Key 均不可用，本报告未调用大模型，仅按问卷答案与预设风险/建议文案自动拼装，不含摘要与整改顺序建议，请人工补充。";
+
 export async function generateCheckupReport(opts: {
   prisma: PrismaClient;
   token: string;
+  lawyerId: string;
   promptMd: string;
   outputMd: string;
-  base: string;
-  apiKey: string;
-  model: string;
-  providerId: string;
   mode?: ReportGenerationMode;
   thresholds?: PriorityThresholds;
-}): Promise<{ reportText: string; moduleCount: number }> {
-  const { prisma, token, promptMd, outputMd, base, apiKey, model, providerId } = opts;
+}): Promise<{ reportText: string; moduleCount: number; usedAi: boolean }> {
+  const { prisma, token, lawyerId, promptMd, outputMd } = opts;
   const thresholds = opts.thresholds ?? DEFAULT_PRIORITY_THRESHOLDS;
   const mode: ReportGenerationMode = opts.mode ?? "concat";
 
@@ -104,6 +104,39 @@ export async function generateCheckupReport(opts: {
   const modules = assembleAllModules(config, answers, thresholds);
   const totalScore = computeTotalScore(config, answers, thresholds);
   const otherAnswers = extractOtherAnswers(config, answers);
+
+  const companyName = checkup.companyName?.trim() || "（未填写公司名称）";
+  const issueDate = new Date().toLocaleDateString("zh-CN");
+  const totalScorePct = Math.round(totalScore.ratio * 100);
+  const headerLines = [
+    "## 企业法律顾问体检报告",
+    "",
+    `**委托方：**${companyName}　**出具单位：**${REPORT_ISSUER_NAME}　**出具日期：**${issueDate}`,
+    "",
+    `**总分：**${totalScore.score}/${totalScore.maxScore}（${totalScorePct}%）　**整体评价：**${totalScore.healthLabel}`,
+    "",
+  ];
+  const fallbackModulesMarkdown =
+    modules.length === 0 ? "本次体检未发现需要重点关注的合规风险项。" : buildModulesMarkdown(modules);
+
+  const profiles = await resolveLlmProfiles(lawyerId);
+
+  if (profiles.length === 0) {
+    const reportText = [
+      ...headerLines,
+      `> ${NO_AI_NOTICE}`,
+      "",
+      fallbackModulesMarkdown,
+      "",
+      "### 免责声明",
+      "",
+      DISCLAIMER_TEXT,
+    ].join("\n");
+    await prisma.quickExamReportJob.create({
+      data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText },
+    });
+    return { reportText, moduleCount: modules.length, usedAi: false };
+  }
 
   const factsPayload = {
     modules: modules.map((m) => ({
@@ -131,16 +164,31 @@ export async function generateCheckupReport(opts: {
     content: `【模块事实与客户自述】\n\n${JSON.stringify(factsPayload, null, 2)}`,
   });
 
-  const fmt = jsonObjectFormatIfSupported(providerId);
-  const raw = await callChatCompletions({
-    base,
-    apiKey,
-    model,
+  const result = await callChatCompletionsWithFallback(profiles, {
     messages,
     temperature: 0.3,
     max_tokens: mode === "fusion" ? 3000 : 1500,
-    response_format: fmt,
+    wantJson: true,
   });
+
+  if (!result.ok) {
+    const reportText = [
+      ...headerLines,
+      `> ${NO_AI_NOTICE}`,
+      "",
+      fallbackModulesMarkdown,
+      "",
+      "### 免责声明",
+      "",
+      DISCLAIMER_TEXT,
+    ].join("\n");
+    await prisma.quickExamReportJob.create({
+      data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText },
+    });
+    return { reportText, moduleCount: modules.length, usedAi: false };
+  }
+
+  const raw = result.text;
 
   let summary = "";
   let actionPlan = "";
@@ -167,8 +215,6 @@ export async function generateCheckupReport(opts: {
     actionPlan = "（未生成整改顺序建议，请参考各模块优先级自行安排处理顺序。）";
   }
 
-  const companyName = checkup.companyName?.trim() || "（未填写公司名称）";
-  const issueDate = new Date().toLocaleDateString("zh-CN");
   const modulesMarkdown =
     modules.length === 0
       ? "本次体检未发现需要重点关注的合规风险项。"
@@ -176,15 +222,8 @@ export async function generateCheckupReport(opts: {
         ? buildFusionModulesMarkdown(modules, moduleBodies)
         : buildModulesMarkdown(modules);
 
-  const totalScorePct = Math.round(totalScore.ratio * 100);
-
   const reportText = [
-    "## 企业法律顾问体检报告",
-    "",
-    `**委托方：**${companyName}　**出具单位：**${REPORT_ISSUER_NAME}　**出具日期：**${issueDate}`,
-    "",
-    `**总分：**${totalScore.score}/${totalScore.maxScore}（${totalScorePct}%）　**整体评价：**${totalScore.healthLabel}`,
-    "",
+    ...headerLines,
     "### 报告摘要",
     "",
     summary,
@@ -210,5 +249,5 @@ export async function generateCheckupReport(opts: {
     },
   });
 
-  return { reportText, moduleCount: modules.length };
+  return { reportText, moduleCount: modules.length, usedAi: true };
 }
