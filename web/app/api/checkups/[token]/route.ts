@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessionUser } from "@/lib/auth";
+import { readQuestionnaireConfigForCheckup } from "@/lib/questionnaire-templates";
 
 export const runtime = "nodejs";
 
@@ -31,12 +32,15 @@ export async function GET(
         answers: {},
         savedAt: null,
         submittedAt: null,
+        config: null,
       });
     }
 
     if (checkup.clientId !== user.id) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
+
+    const config = await readQuestionnaireConfigForCheckup(prisma, checkup);
 
     return NextResponse.json({
       token: checkup.token,
@@ -47,6 +51,7 @@ export async function GET(
       answers: checkup.answersJson,
       savedAt: checkup.savedAt.toISOString(),
       submittedAt: checkup.submittedAt ? checkup.submittedAt.toISOString() : null,
+      config,
     });
   } catch {
     // DB/Prisma unavailable: keep questionnaire usable with client-side fallback.
@@ -59,6 +64,7 @@ export async function GET(
       answers: {},
       savedAt: null,
       submittedAt: null,
+      config: null,
       storageMode: "local-fallback",
     });
   }

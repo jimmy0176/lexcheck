@@ -1,14 +1,15 @@
-import path from "node:path";
-import { readFile } from "node:fs/promises";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { requireLawyerPage } from "@/lib/auth";
 import type { Answers, QuestionnaireConfig } from "@/lib/questionnaire-types";
+import { readQuestionnaireConfigForCheckup } from "@/lib/questionnaire-templates";
 import { WorkspaceSidePanel, WorkspaceSidePanelSection } from "@/components/workspace-side-panel";
 import { CheckupReportPanel } from "./CheckupReportPanel";
 import { WorkspaceSettingsButtons } from "./WorkspaceControls";
 import { AccountTopBar } from "./AccountTopBar";
 import { Dashboard, type DashboardRow, type DashboardStats } from "./Dashboard";
+import { QuestionnaireConfigPanel } from "./QuestionnaireConfigPanel";
+import { ClientConfigPanel } from "./ClientConfigPanel";
 
 type View = "dashboard" | "report" | "questionnaire-config" | "client-config";
 
@@ -18,12 +19,6 @@ const NAV_ITEMS: Array<{ view: View; label: string }> = [
   { view: "questionnaire-config", label: "问卷配置" },
   { view: "client-config", label: "客户配置" },
 ];
-
-async function readQuestionnaireConfig() {
-  const filePath = path.join(process.cwd(), "public", "questionnaire.json");
-  const raw = await readFile(filePath, "utf-8");
-  return JSON.parse(raw) as QuestionnaireConfig;
-}
 
 export default async function LawyerLexcheckPage({
   searchParams,
@@ -57,6 +52,7 @@ export default async function LawyerLexcheckPage({
     reportTemplate: string;
   } | null = null;
   let config: QuestionnaireConfig | null = null;
+  let templateName: string | null = null;
 
   let dashboardStats: DashboardStats | null = null;
   let dashboardRows: DashboardRow[] = [];
@@ -108,7 +104,10 @@ export default async function LawyerLexcheckPage({
     if (!dbError && activeToken) {
       try {
         const { prisma } = await import("@/lib/prisma");
-        const selectedBase = await prisma.checkup.findUnique({ where: { token: activeToken } });
+        const selectedBase = await prisma.checkup.findUnique({
+          where: { token: activeToken },
+          include: { template: { select: { name: true } } },
+        });
         if (selectedBase) {
           const workspace = await prisma.checkupWorkspace.upsert({
             where: { checkupId: selectedBase.id },
@@ -120,7 +119,8 @@ export default async function LawyerLexcheckPage({
             promptTemplate: workspace.promptTemplate ?? "",
             reportTemplate: workspace.reportTemplate ?? "",
           };
-          config = await readQuestionnaireConfig();
+          templateName = selectedBase.template?.name ?? null;
+          config = await readQuestionnaireConfigForCheckup(prisma, selectedBase);
         }
       } catch {
         dbError = true;
@@ -195,8 +195,10 @@ export default async function LawyerLexcheckPage({
                   ) : (
                     <div className="p-4 text-sm text-muted-foreground">暂无数据。</div>
                   )
-                ) : view === "questionnaire-config" || view === "client-config" ? (
-                  <div className="h-full" />
+                ) : view === "questionnaire-config" ? (
+                  <QuestionnaireConfigPanel />
+                ) : view === "client-config" ? (
+                  <ClientConfigPanel />
                 ) : selected ? (
                   <CheckupReportPanel
                     key={selected.token}
@@ -208,7 +210,7 @@ export default async function LawyerLexcheckPage({
                     contactPhone={selected.contactPhone}
                     questionnaireStatus={selected.status}
                     submittedAt={selected.submittedAt}
-                    questionnaireVersion={config?.version ?? null}
+                    questionnaireVersion={templateName}
                   />
                 ) : (
                   <div className="p-4 text-sm text-muted-foreground">

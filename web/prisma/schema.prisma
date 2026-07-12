@@ -20,6 +20,8 @@ enum CheckupStatus {
 enum CheckupAttachmentKind {
   preliminary
   detailed
+  /** 法律体检专属：企查查等三方企业背景报告，与尽调报告的 preliminary/detailed 附件桶完全隔离。 */
+  thirdParty
 }
 
 enum QuickExamJobStatus {
@@ -50,6 +52,8 @@ model User {
   updatedAt   DateTime @updatedAt
   sessions    Session[]
   checkups    Checkup[]
+  createdTemplates    QuestionnaireTemplate[]
+  templateAssignments QuestionnaireAssignment[]
 
   /** 律师本人的大模型档案；生成报告时优先使用。 */
   llmProviderId String?
@@ -105,11 +109,14 @@ model Checkup {
   updatedAt   DateTime          @updatedAt
   clientId    String?
   client      User?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  templateId  String?
+  template    QuestionnaireTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   attachments CheckupAttachment[]
   workspace   CheckupWorkspace?
   quickExamJobs QuickExamReportJob[]
 
   @@index([clientId, submittedAt])
+  @@index([templateId])
 }
 
 model QuickExamReportJob {
@@ -140,6 +147,8 @@ model CheckupAttachment {
   storagePath  String
   extractedText String?
   extractError String?
+  /** LLM 从三方报告原文提取的 {companyInfo, highlights} 缓存；仅 thirdParty 类型使用，避免每次生成报告都重新调用。 */
+  parsedSummaryJson Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -155,6 +164,8 @@ model CheckupWorkspace {
   ownerName      String?
   promptTemplate String?
   reportTemplate String?
+  /** 生成体检报告时是否结合已上传的三方报告（企查查等）。 */
+  thirdPartyReportEnabled Boolean    @default(false)
   progressJson   Json                @default("{}")
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
@@ -187,4 +198,35 @@ model CheckupFinalReport {
   notesText      String?
   generatedAt    DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+}
+
+/**
+ * 法律体检问卷模板（律师端「问卷配置」页面通过 Excel 导入导出管理）。
+ * content 存整份 QuestionnaireConfig 结构（章节/题目/选项）；一旦有 Checkup 关联即视为锁定，
+ * 不可再编辑或删除，只能导出后修改重新导入为新模板。仅供法律体检使用，与尽调报告无关。
+ */
+model QuestionnaireTemplate {
+  id          String   @id @default(cuid())
+  name        String
+  note        String?
+  content     Json
+  createdById String?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  checkups    Checkup[]
+  assignments QuestionnaireAssignment[]
+}
+
+/** 问卷模板对客户的推送范围；clientId 为空表示面向所有客户公开。 */
+model QuestionnaireAssignment {
+  id         String   @id @default(cuid())
+  templateId String
+  template   QuestionnaireTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  clientId   String?
+  client     User?    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([templateId, clientId])
 }

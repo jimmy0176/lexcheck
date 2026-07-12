@@ -153,12 +153,17 @@ export function assembleSection(
   const ratio = maxScore > 0 ? score / maxScore : 1;
   const priority = computePriorityLabel(ratio, thresholds);
 
-  const bodyMarkdown = riskItems
-    .map((item, i) => {
-      const advice = item.adviceText.trim() ? `\n   建议：${item.adviceText}` : "";
-      return `${i + 1}. **${item.question}**\n   风险：${item.riskText}${advice}`;
-    })
-    .join("\n\n");
+  const riskLines = riskItems
+    .map((item, i) => `${i + 1}. **${item.question}**：${item.riskText}`)
+    .join("\n");
+  const adviceItems = riskItems.filter((item) => item.adviceText.trim());
+  const adviceLines = adviceItems
+    .map((item, i) => `${i + 1}. **${item.question}**：${item.adviceText}`)
+    .join("\n");
+  const bodyMarkdown =
+    adviceItems.length > 0
+      ? `风险分析：\n${riskLines}\n\n建议：\n${adviceLines}`
+      : `风险分析：\n${riskLines}`;
 
   return { sectionId: section.sectionId, title: section.title, score, maxScore, ratio, priority, riskItems, bodyMarkdown };
 }
@@ -207,16 +212,16 @@ export function buildModulesMarkdown(modules: ModuleAssembly[]): string {
     .join("\n\n");
 }
 
-/** 第九节「其他」两道开放题答案，供 LLM 撰写报告摘要时参考。 */
-export function extractOtherAnswers(config: QuestionnaireConfig, answers: Answers) {
-  const otherSection = config.sections.find((s) => s.sectionId === "other");
-  const get = (qid: string) => {
-    const a = answers[qid];
-    return a?.kind === "textarea" ? a.value.trim() : "";
-  };
-  const qids = otherSection?.questions.map((q) => q.qid) ?? [];
-  return {
-    topIssue: qids[0] ? get(qids[0]) : "",
-    nextThreeYears: qids[1] ? get(qids[1]) : "",
-  };
+/** 全部开放题（textarea 类型）已填写的答案，供 LLM 撰写报告摘要时参考。不假设固定的题目数量或所在章节。 */
+export function extractFreeformAnswers(config: QuestionnaireConfig, answers: Answers) {
+  const items: Array<{ question: string; value: string }> = [];
+  for (const section of config.sections) {
+    for (const q of section.questions) {
+      if (q.type !== "textarea") continue;
+      const a = answers[q.qid];
+      const value = a?.kind === "textarea" ? a.value.trim() : "";
+      if (value) items.push({ question: q.question, value });
+    }
+  }
+  return items;
 }

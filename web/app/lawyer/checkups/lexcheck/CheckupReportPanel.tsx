@@ -14,6 +14,7 @@ import { CheckupReportHistoryPanel } from "./CheckupReportHistoryPanel";
 import { SegmentTemplateSettingsDialog } from "./SegmentTemplateSettingsDialog";
 import { downloadQuickExamDocx } from "./export-quick-exam-report";
 import { QuickExamReportMarkdown } from "./QuickExamReportMarkdown";
+import { ThirdPartyReportBox } from "./ThirdPartyReportBox";
 
 function segmentPromptStorageKey(token: string, sectionKey: string) {
   return `lexcheck:dd-segment:${token}:${sectionKey}:prompt`;
@@ -286,7 +287,7 @@ export function CheckupReportPanel({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-4">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-8 py-4">
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           <div className="shrink-0 space-y-3">
             <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
@@ -307,6 +308,7 @@ export function CheckupReportPanel({
               ))}
             </div>
           </div>
+          <ThirdPartyReportBox token={token} />
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex shrink-0 items-stretch gap-4 border-b border-border">
               <button
@@ -404,11 +406,7 @@ export function CheckupReportPanel({
                     <QuickExamReportMarkdown markdown={reportText} />
                   </div>
                 ) : (
-                  <div className="flex min-h-0 flex-1 flex-col py-3 text-xs">
-                    <p className="text-muted-foreground">
-                      尚未生成。请点击「生成体检报告」：系统会按问卷答案逐条拼装风险与建议，并由大模型补充开头概述与结尾整改顺序建议。生成前可在左侧「提示词与模板设置」中调整语气与格式指引。
-                    </p>
-                  </div>
+                  <div className="min-h-0 flex-1" />
                 )}
 
                 {runDetail.startedAt != null ? (
@@ -423,7 +421,7 @@ export function CheckupReportPanel({
                   </div>
                 ) : null}
 
-                <div className="mt-2 flex shrink-0 items-center justify-between gap-2 py-1.5 text-sm">
+                <div className="mt-2 flex shrink-0 items-center justify-between gap-2 py-1.5 text-base">
                   <div className="min-w-0 flex-1 truncate">
                     {err ? (
                       <span className="text-destructive">{err}</span>
@@ -440,29 +438,28 @@ export function CheckupReportPanel({
                       value={reportMode}
                       disabled={genBusy}
                       onChange={(e) => setReportMode(e.target.value === "concat" ? "concat" : "fusion")}
-                      className="h-8 rounded-sm border border-border/60 bg-transparent px-2 text-xs text-muted-foreground"
+                      className="h-9 rounded-sm border border-border/60 bg-transparent px-2 text-sm text-muted-foreground"
                     >
                       <option value="fusion">融合模式</option>
                       <option value="concat">拼装模式</option>
                     </select>
                     <Button
                       type="button"
-                      size="sm"
-                      variant="link"
-                      className="h-8 text-xs"
+                      size="default"
+                      className="h-9 rounded-lg border border-primary/30 bg-gradient-to-b from-primary to-primary/85 px-4 text-sm font-medium text-primary-foreground shadow-sm shadow-primary/30 transition-all hover:from-primary/95 hover:to-primary/80 hover:shadow-md"
                       disabled={genBusy}
                       onClick={(e) => {
                         e.preventDefault();
                         void generateReport();
                       }}
                     >
-                      {genBusy ? "生成中…" : "生成体检报告"}
+                      {genBusy ? "生成中…" : "生成报告"}
                     </Button>
                     <Button
                       type="button"
                       size="sm"
                       variant="link"
-                      className="h-8 text-xs"
+                      className="h-9 text-sm"
                       disabled={!reportText.trim()}
                       onClick={(e) => {
                         e.preventDefault();

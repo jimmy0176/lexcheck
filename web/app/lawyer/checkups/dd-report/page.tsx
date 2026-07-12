@@ -43,7 +43,7 @@ export default async function LawyerLexcheckPage({
     answersJson: unknown;
     attachments: Array<{
       id: string;
-      kind: "preliminary" | "detailed";
+      kind: "preliminary" | "detailed" | "thirdParty";
       fileName: string;
       extractedText: string | null;
       extractError: string | null;
@@ -95,7 +95,8 @@ export default async function LawyerLexcheckPage({
       const selectedBase = await prisma.checkup.findUnique({
         where: { token: activeToken },
         include: {
-          attachments: { orderBy: { createdAt: "desc" } },
+          // 排除 thirdParty：那是法律体检应用专属的三方报告附件桶，与本应用的 preliminary/detailed 无关。
+          attachments: { where: { kind: { in: ["preliminary", "detailed"] } }, orderBy: { createdAt: "desc" } },
         },
       });
       selected = selectedBase ? { ...selectedBase, workspace: null } : null;

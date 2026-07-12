@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { getSessionUser } from "@/lib/auth";
 import { ClientAuthGate } from "@/components/auth/ClientAuthGate";
+import { ensureDefaultQuestionnaireTemplate } from "@/lib/questionnaire-templates";
 
 export default async function QuestionnaireEntryPage() {
   const user = await getSessionUser();
@@ -9,20 +10,42 @@ export default async function QuestionnaireEntryPage() {
     return <ClientAuthGate />;
   }
 
-  let drafts: Array<{
+  let templates: Array<{
     id: string;
-    token: string;
-    companyName: string | null;
-    savedAt: Date;
+    name: string;
+    note: string | null;
+    status: "none" | "draft" | "submitted";
+    token: string | null;
   }> = [];
   let dbError = false;
 
   try {
     const { prisma } = await import("@/lib/prisma");
-    drafts = await prisma.checkup.findMany({
-      where: { status: "draft", clientId: user.id },
+    await ensureDefaultQuestionnaireTemplate(prisma);
+
+    const assignments = await prisma.questionnaireAssignment.findMany({
+      where: { OR: [{ clientId: null }, { clientId: user.id }] },
+      include: { template: true },
+    });
+    const templateMap = new Map(assignments.map((a) => [a.templateId, a.template]));
+
+    const checkups = await prisma.checkup.findMany({
+      where: { clientId: user.id, templateId: { in: [...templateMap.keys()] } },
       orderBy: { updatedAt: "desc" },
-      take: 30,
+    });
+
+    templates = [...templateMap.values()].map((t) => {
+      const draft = checkups.find((c) => c.templateId === t.id && c.status === "draft");
+      const lastSubmitted = checkups
+        .filter((c) => c.templateId === t.id && c.status === "submitted")
+        .sort((a, b) => (b.submittedAt?.getTime() ?? 0) - (a.submittedAt?.getTime() ?? 0))[0];
+      return {
+        id: t.id,
+        name: t.name,
+        note: t.note,
+        status: draft ? "draft" : lastSubmitted ? "submitted" : "none",
+        token: draft?.token ?? lastSubmitted?.token ?? null,
+      };
     });
   } catch {
     dbError = true;
@@ -32,46 +55,58 @@ export default async function QuestionnaireEntryPage() {
     <main className="min-h-dvh bg-background">
       <div className="mx-auto w-full max-w-6xl px-6 py-10">
         <div className="text-sm text-muted-foreground">客户问卷</div>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">选择继续填写或新建问卷</h1>
-        <div className="mt-4">
-          <Link
-            href="/q/new"
-            className="inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted/30"
-          >
-            新建问卷
-          </Link>
-        </div>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">选择填写的问卷</h1>
 
         {dbError && (
-          <Card className="mt-4 p-4 text-sm text-muted-foreground">
-            数据库暂不可用。你仍可点击“新建问卷”继续本地填写，后续恢复数据库后可再同步。
-          </Card>
+          <Card className="mt-4 p-4 text-sm text-muted-foreground">数据库暂不可用，请稍后重试。</Card>
         )}
 
         <div className="mt-6 space-y-3">
-          {drafts.length === 0 ? (
+          {!dbError && templates.length === 0 ? (
             <Card className="p-6 text-sm text-muted-foreground">
-              暂无未提交问卷，可直接新建一份开始填写。
+              暂无可填写的问卷，请联系您的律师推送问卷。
             </Card>
           ) : (
-            drafts.map((item) => (
-              <Card key={item.id} className="p-4">
+            templates.map((t) => (
+              <Card key={t.id} className="p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div className="space-y-1">
-                    <div className="text-sm font-medium">
-                      公司：{item.companyName?.trim() ? item.companyName : "未填写公司名称"}
-                    </div>
-                    <div className="text-sm text-muted-foreground">token: {item.token}</div>
+                    <div className="text-sm font-medium">{t.name}</div>
+                    {t.note ? <div className="text-xs text-muted-foreground">{t.note}</div> : null}
                     <div className="text-xs text-muted-foreground">
-                      最近保存：{item.savedAt.toLocaleString()}
+                      状态：{t.status === "draft" ? "草稿未提交" : t.status === "submitted" ? "已提交" : "尚未开始"}
                     </div>
                   </div>
-                  <Link
-                    href={`/q/${item.token}`}
-                    className="text-sm font-medium text-primary underline underline-offset-4"
-                  >
-                    继续填写
-                  </Link>
+                  {t.status === "draft" && t.token ? (
+                    <Link
+                      href={`/q/${t.token}`}
+                      className="text-sm font-medium text-primary underline underline-offset-4"
+                    >
+                      继续填写
+                    </Link>
+                  ) : t.status === "submitted" && t.token ? (
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/q/${t.token}`}
+                        className="text-sm font-medium text-muted-foreground underline underline-offset-4"
+                      >
+                        查看
+                      </Link>
+                      <Link
+                        href={`/q/new?templateId=${encodeURIComponent(t.id)}`}
+                        className="text-sm font-medium text-primary underline underline-offset-4"
+                      >
+                        重新填写
+                      </Link>
+                    </div>
+                  ) : (
+                    <Link
+                      href={`/q/new?templateId=${encodeURIComponent(t.id)}`}
+                      className="inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium hover:bg-muted/30"
+                    >
+                      开始填写
+                    </Link>
+                  )}
                 </div>
               </Card>
             ))

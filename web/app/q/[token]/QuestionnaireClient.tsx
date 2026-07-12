@@ -6,7 +6,7 @@ import type {
   QuestionnaireConfig,
   QuestionnaireQuestion,
 } from "@/lib/questionnaire-types";
-import { loadDraft, saveDraft } from "@/lib/local-draft";
+import { saveDraft } from "@/lib/local-draft";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -88,47 +88,28 @@ export function QuestionnaireClient({ token }: { token: string }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const res = await fetch("/questionnaire.json", { cache: "no-store" });
-      const json = (await res.json()) as QuestionnaireConfig;
-      if (cancelled) return;
-      setConfig(json);
-
-      let draft: {
+      const draftRes = await fetch(`/api/checkups/${token}`, { cache: "no-store" });
+      if (!draftRes.ok) throw new Error("server unavailable");
+      const draft = (await draftRes.json()) as {
         companyName?: string;
         contactName?: string;
         contactPhone?: string;
         answers?: Answers;
         savedAt?: string | null;
         submittedAt?: string | null;
-      } = {};
-
-      try {
-        const draftRes = await fetch(`/api/checkups/${token}`, { cache: "no-store" });
-        if (!draftRes.ok) throw new Error("server unavailable");
-        draft = (await draftRes.json()) as {
-          companyName?: string;
-          contactName?: string;
-          contactPhone?: string;
-          answers?: Answers;
-          savedAt?: string | null;
-          submittedAt?: string | null;
-        };
-        setSaveMode("server");
-      } catch {
-        const local = loadDraft(json, token);
-        draft = {
-          companyName: local?.companyName ?? "",
-          contactName: local?.contactName ?? "",
-          contactPhone: local?.contactPhone ?? "",
-          answers: local?.answers,
-          savedAt: local?.savedAt ?? null,
-          submittedAt: local?.submittedAt ?? null,
-        };
-        setSaveMode("local");
+        config?: QuestionnaireConfig | null;
+        storageMode?: string;
+      };
+      if (cancelled) return;
+      if (!draft.config) {
+        setSaveState({ kind: "error", message: "找不到该问卷对应的模板，请返回问卷列表重新进入" });
+        return;
       }
+      setConfig(draft.config);
+      setSaveMode(draft.storageMode === "local-fallback" ? "local" : "server");
 
       const initialAnswers: Answers = {};
-      for (const section of json.sections) {
+      for (const section of draft.config.sections) {
         for (const q of section.questions) {
           initialAnswers[q.qid] = draft?.answers?.[q.qid] ?? defaultAnswerFor(q);
         }
