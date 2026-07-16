@@ -2,19 +2,22 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionUser } from "@/lib/auth";
 import { resolveOrCreateCheckupForClient } from "@/lib/questionnaire-access";
-import { ClientAuthGate } from "@/components/auth/ClientAuthGate";
 
 export default async function NewQuestionnairePage({
   searchParams,
 }: {
   searchParams?: Promise<{ templateId?: string }>;
 }) {
+  const params = await searchParams;
   const user = await getSessionUser();
   if (!user || user.role !== "client") {
-    return <ClientAuthGate message="请登录客户账号后新建问卷。" />;
+    const returnTo = params?.templateId
+      ? `/q/new?templateId=${encodeURIComponent(params.templateId)}`
+      : "/q/new";
+    redirect(`/?next=${encodeURIComponent(returnTo)}`);
   }
 
-  const templateId = (await searchParams)?.templateId?.trim();
+  const templateId = params?.templateId?.trim();
   if (!templateId) {
     return (
       <main className="min-h-dvh bg-background">

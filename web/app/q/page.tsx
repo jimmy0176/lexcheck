@@ -1,13 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { getSessionUser } from "@/lib/auth";
-import { ClientAuthGate } from "@/components/auth/ClientAuthGate";
 import { ensureDefaultQuestionnaireTemplate } from "@/lib/questionnaire-templates";
 
 export default async function QuestionnaireEntryPage() {
   const user = await getSessionUser();
   if (!user || user.role !== "client") {
-    return <ClientAuthGate />;
+    redirect("/?next=%2Fq");
   }
 
   let templates: Array<{

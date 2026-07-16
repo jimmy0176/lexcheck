@@ -1,5 +1,5 @@
+import { redirect } from "next/navigation";
 import { getSessionUser } from "@/lib/auth";
-import { ClientAuthGate } from "@/components/auth/ClientAuthGate";
 import { QuestionnaireClient } from "./QuestionnaireClient";
 
 export default async function QuestionnairePage({
@@ -11,7 +11,7 @@ export default async function QuestionnairePage({
 
   const user = await getSessionUser();
   if (!user || user.role !== "client") {
-    return <ClientAuthGate message="请登录客户账号后继续填写问卷。" />;
+    redirect(`/?next=${encodeURIComponent(`/q/${token}`)}`);
   }
 
   const { prisma } = await import("@/lib/prisma");
@@ -27,6 +27,13 @@ export default async function QuestionnairePage({
     );
   }
 
-  return <QuestionnaireClient token={token} />;
+  return (
+    <QuestionnaireClient
+      token={token}
+      defaultCompanyName={user.companyName ?? ""}
+      defaultContactName={user.name ?? ""}
+      defaultContactPhone={user.phone ?? ""}
+    />
+  );
 }
 

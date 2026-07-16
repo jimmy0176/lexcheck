@@ -72,7 +72,18 @@ function computeSkippedQids(config: QuestionnaireConfig, answers: Answers): Set<
   return skipped;
 }
 
-export function QuestionnaireClient({ token }: { token: string }) {
+export function QuestionnaireClient({
+  token,
+  defaultCompanyName = "",
+  defaultContactName = "",
+  defaultContactPhone = "",
+}: {
+  token: string;
+  /** 客户账号资料里的公司名/姓名/电话，问卷草稿对应字段为空时用作默认值 */
+  defaultCompanyName?: string;
+  defaultContactName?: string;
+  defaultContactPhone?: string;
+}) {
   const [config, setConfig] = useState<QuestionnaireConfig | null>(null);
   const [companyName, setCompanyName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -114,9 +125,9 @@ export function QuestionnaireClient({ token }: { token: string }) {
           initialAnswers[q.qid] = draft?.answers?.[q.qid] ?? defaultAnswerFor(q);
         }
       }
-      setCompanyName(draft.companyName ?? "");
-      setContactName(draft.contactName ?? "");
-      setContactPhone(draft.contactPhone ?? "");
+      setCompanyName(draft.companyName || defaultCompanyName);
+      setContactName(draft.contactName || defaultContactName);
+      setContactPhone(draft.contactPhone || defaultContactPhone);
       setAnswers(initialAnswers);
       setSubmittedAt(draft?.submittedAt ? new Date(draft.submittedAt) : null);
       if (draft?.savedAt) {
@@ -129,7 +140,7 @@ export function QuestionnaireClient({ token }: { token: string }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [token, defaultCompanyName, defaultContactName, defaultContactPhone]);
 
   const skippedQids = useMemo(
     () => (config ? computeSkippedQids(config, answers) : new Set<string>()),

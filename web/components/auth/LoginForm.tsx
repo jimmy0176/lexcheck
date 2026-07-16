@@ -5,11 +5,11 @@ import { ArrowRight, KeyRound, Lock, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const inputWrapCls = "relative";
-const inputIconCls = "pointer-events-none absolute left-4 top-1/2 h-7 w-7 -translate-y-1/2 text-[#007BFC]";
+const inputIconCls = "pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-[#007BFC]";
 const inputCls =
-  "h-16 w-full appearance-none rounded-lg border border-transparent bg-[#F2F8FF] pl-14 pr-3 text-xl outline-none transition-colors focus:border-blue-500 focus:bg-background focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-blue-500/10";
+  "h-11 w-full appearance-none rounded-lg border border-transparent bg-[#F2F8FF] pl-10 pr-3 text-base outline-none transition-colors focus:border-blue-500 focus:bg-background focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-blue-500/10";
 const plainInputCls =
-  "h-14 w-full appearance-none rounded-lg border border-transparent bg-[#F2F8FF] px-3 text-xl outline-none transition-colors focus:border-blue-500 focus:bg-background focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-blue-500/10";
+  "h-10 w-full appearance-none rounded-lg border border-transparent bg-[#F2F8FF] px-3 text-base outline-none transition-colors focus:border-blue-500 focus:bg-background focus:outline-none focus:ring-2 focus:ring-blue-500/25 dark:bg-blue-500/10";
 
 type Tab = "login" | "register";
 type AccountKind = "email" | "phone" | "unknown";
@@ -54,7 +54,7 @@ function GlowBarButton({
       onClick={onClick}
       onMouseMove={handleMouseMove}
       disabled={disabled}
-      className={`group relative h-16 w-full overflow-hidden rounded-lg text-xl font-medium transition-transform active:scale-[0.99] disabled:cursor-not-allowed ${
+      className={`group relative h-11 w-full overflow-hidden rounded-lg text-base font-medium transition-transform active:scale-[0.99] disabled:cursor-not-allowed ${
         tone === "solid"
           ? "bg-[#007BFC] text-white shadow-md shadow-blue-500/30 transition-colors duration-300 hover:bg-[#030F59]"
           : "border border-blue-200 bg-background text-blue-600 dark:border-blue-400/30"
@@ -70,7 +70,7 @@ function GlowBarButton({
               : "radial-gradient(200px circle at var(--mx, 50%) var(--my, 50%), rgba(37,99,235,0.18), transparent 70%)",
         }}
       />
-      <span className="relative z-10 flex w-full items-center justify-start px-6">{children}</span>
+      <span className="relative z-10 flex w-full items-center justify-start px-5">{children}</span>
     </button>
   );
 }
@@ -95,6 +95,7 @@ export function LoginForm({
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [inviteCode, setInviteCode] = useState("");
+  const [requireInviteCode, setRequireInviteCode] = useState(false);
 
   const [busy, setBusy] = useState(false);
   const [codeBusy, setCodeBusy] = useState(false);
@@ -126,11 +127,18 @@ export function LoginForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(accountKind === "email" ? { email: account } : { phone: account }),
       });
-      const json = (await res.json()) as { ok?: boolean; isNewEmail?: boolean; isNewPhone?: boolean; message?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        isNewEmail?: boolean;
+        isNewPhone?: boolean;
+        requireInviteCode?: boolean;
+        message?: string;
+      };
       if (!res.ok || !json.ok) throw new Error(json.message ?? "获取验证码失败");
       const isNew = accountKind === "email" ? Boolean(json.isNewEmail) : Boolean(json.isNewPhone);
       if (isNew) {
         setTab("register");
+        setRequireInviteCode(Boolean(json.requireInviteCode));
         if (accountKind === "email") setRegisterEmail(account);
         else setRegisterPhone(account);
         setNotice("该账号尚未注册，已为你切换到注册，请补充信息后重新获取验证码");
@@ -159,7 +167,12 @@ export function LoginForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      const json = (await res.json()) as { ok?: boolean; isNewEmail?: boolean; message?: string };
+      const json = (await res.json()) as {
+        ok?: boolean;
+        isNewEmail?: boolean;
+        requireInviteCode?: boolean;
+        message?: string;
+      };
       if (!res.ok || !json.ok) throw new Error(json.message ?? "获取验证码失败");
       if (!json.isNewEmail) {
         setTab("login");
@@ -167,6 +180,7 @@ export function LoginForm({
         setNotice("该邮箱已注册，已为你切换到登录，请重新获取验证码");
         return;
       }
+      setRequireInviteCode(Boolean(json.requireInviteCode));
       setNotice("验证码已发送到邮箱，请查收后填写");
     } catch (e) {
       setErr(String(e instanceof Error ? e.message : e));
@@ -266,7 +280,7 @@ export function LoginForm({
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-5">
       {tab === "login" ? (
         <>
           <div className={inputWrapCls}>
@@ -306,7 +320,7 @@ export function LoginForm({
               <Button
                 type="button"
                 variant="outline"
-                className="h-16 shrink-0 px-4 text-lg"
+                className="h-11 shrink-0 px-4 text-sm"
                 onClick={() => void requestLoginCode()}
                 disabled={codeBusy || accountKind === "unknown"}
               >
@@ -319,7 +333,7 @@ export function LoginForm({
             <div className="flex items-center justify-between">
               <button
                 type="button"
-                className="ml-2 text-lg text-blue-600 hover:underline underline-offset-2"
+                className="ml-1 text-sm text-blue-600 hover:underline underline-offset-2"
                 onClick={() => {
                   setLoginMethod("code");
                   setErr(null);
@@ -330,7 +344,7 @@ export function LoginForm({
               </button>
               <button
                 type="button"
-                className="text-lg text-muted-foreground hover:text-foreground hover:underline underline-offset-2"
+                className="text-sm text-muted-foreground hover:text-foreground hover:underline underline-offset-2"
                 onClick={() => {
                   setLoginMethod("code");
                   setErr(null);
@@ -344,7 +358,7 @@ export function LoginForm({
             <div className="flex justify-start">
               <button
                 type="button"
-                className="ml-2 text-lg text-blue-600 hover:underline underline-offset-2"
+                className="ml-1 text-sm text-blue-600 hover:underline underline-offset-2"
                 onClick={() => {
                   setLoginMethod("password");
                   setErr(null);
@@ -365,7 +379,7 @@ export function LoginForm({
 
           <div className="flex items-center gap-3">
             <div className="h-px flex-1 bg-border" />
-            <span className="text-lg text-muted-foreground">OR</span>
+            <span className="text-sm text-muted-foreground">OR</span>
             <div className="h-px flex-1 bg-border" />
           </div>
 
@@ -376,7 +390,7 @@ export function LoginForm({
       ) : (
         <>
           <label className="block space-y-1">
-            <span className="text-xl text-muted-foreground">邮箱</span>
+            <span className="text-sm text-muted-foreground">邮箱</span>
             <div className="flex gap-2">
               <input
                 value={registerEmail}
@@ -388,7 +402,7 @@ export function LoginForm({
               <Button
                 type="button"
                 variant="outline"
-                className="h-14 shrink-0 px-3 text-lg"
+                className="h-10 shrink-0 px-3 text-sm"
                 onClick={() => void requestRegisterCode()}
                 disabled={codeBusy || !registerEmail.trim()}
               >
@@ -397,7 +411,7 @@ export function LoginForm({
             </div>
           </label>
           <label className="block space-y-1">
-            <span className="text-xl text-muted-foreground">验证码</span>
+            <span className="text-sm text-muted-foreground">验证码</span>
             <input
               value={registerCode}
               onChange={(e) => setRegisterCode(e.target.value)}
@@ -407,7 +421,7 @@ export function LoginForm({
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xl text-muted-foreground">手机号（选填）</span>
+            <span className="text-sm text-muted-foreground">手机号（选填）</span>
             <input
               value={registerPhone}
               onChange={(e) => setRegisterPhone(e.target.value)}
@@ -416,17 +430,19 @@ export function LoginForm({
             />
           </label>
           <label className="block space-y-1">
-            <span className="text-xl text-muted-foreground">姓名</span>
+            <span className="text-sm text-muted-foreground">姓名</span>
             <input value={name} onChange={(e) => setName(e.target.value)} className={plainInputCls} />
           </label>
           <label className="block space-y-1">
-            <span className="text-xl text-muted-foreground">公司名称</span>
+            <span className="text-sm text-muted-foreground">公司名称</span>
             <input value={companyName} onChange={(e) => setCompanyName(e.target.value)} className={plainInputCls} />
           </label>
-          <label className="block space-y-1">
-            <span className="text-xl text-muted-foreground">邀请码（如未开放自由注册需填写）</span>
-            <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} className={plainInputCls} />
-          </label>
+          {requireInviteCode ? (
+            <label className="block space-y-1">
+              <span className="text-sm text-muted-foreground">邀请码</span>
+              <input value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} className={plainInputCls} />
+            </label>
+          ) : null}
 
           <GlowBarButton onClick={() => void submitRegister()} disabled={busy}>
             {busy ? "处理中…" : "注册并登录"}
@@ -434,7 +450,7 @@ export function LoginForm({
 
           <button
             type="button"
-            className="w-full text-center text-lg text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+            className="w-full text-center text-sm text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
             onClick={() => switchTab("login")}
           >
             已有账号？返回登录
@@ -442,8 +458,8 @@ export function LoginForm({
         </>
       )}
 
-      {notice ? <div className="text-lg text-muted-foreground">{notice}</div> : null}
-      {err ? <div className="text-lg text-destructive">{err}</div> : null}
+      {notice ? <div className="text-sm text-muted-foreground">{notice}</div> : null}
+      {err ? <div className="text-sm text-destructive">{err}</div> : null}
     </div>
   );
 }

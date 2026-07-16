@@ -75,28 +75,27 @@ export async function POST(req: Request) {
       if (!code) {
         return NextResponse.json({ error: "bad_request", message: "请输入验证码" }, { status: 400 });
       }
-      const validCode = await consumeEmailVerificationCode(email, code);
-      if (!validCode) {
-        return NextResponse.json({ error: "bad_code", message: "验证码错误或已过期" }, { status: 400 });
-      }
 
       const existing = await prisma.user.findUnique({ where: { email } });
-      let userId: string;
-      if (existing) {
-        userId = existing.id;
-      } else {
+      let name = "";
+      let companyName = "";
+      let phone = "";
+      if (!existing) {
+        // 新邮箱走注册：先把姓名/公司/手机号/邀请码这些必填项校验完，确认这次请求确实能成功创建账号，
+        // 最后才消费验证码——避免"码没错、但表单某项没填对"这种注定失败的请求，把一次性验证码提前烧掉，
+        // 导致用户改好表单重新提交时又被"验证码错误或已过期"卡住。
         if (settings.registrationMode === "invite_only") {
           const inviteCode = (body.inviteCode ?? "").trim();
           if (!inviteCode || !settings.inviteCode || inviteCode !== settings.inviteCode) {
             return NextResponse.json({ error: "bad_invite_code", message: "邀请码错误" }, { status: 400 });
           }
         }
-        const name = (body.name ?? "").trim();
-        const companyName = (body.companyName ?? "").trim();
+        name = (body.name ?? "").trim();
+        companyName = (body.companyName ?? "").trim();
         if (!name || !companyName) {
           return NextResponse.json({ error: "bad_request", message: "请填写姓名和公司名称" }, { status: 400 });
         }
-        const phone = (body.phone ?? "").trim();
+        phone = (body.phone ?? "").trim();
         if (phone && !isValidPhone(phone)) {
           return NextResponse.json({ error: "bad_request", message: "手机号格式不正确" }, { status: 400 });
         }
@@ -106,6 +105,17 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "conflict", message: "该手机号已被其他账号使用" }, { status: 409 });
           }
         }
+      }
+
+      const validCode = await consumeEmailVerificationCode(email, code);
+      if (!validCode) {
+        return NextResponse.json({ error: "bad_code", message: "验证码错误或已过期" }, { status: 400 });
+      }
+
+      let userId: string;
+      if (existing) {
+        userId = existing.id;
+      } else {
         const created = await prisma.user.create({
           data: { email, phone: phone || null, role: "client", name, companyName },
         });

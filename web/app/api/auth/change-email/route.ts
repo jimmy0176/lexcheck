@@ -22,13 +22,15 @@ export async function POST(req: Request) {
   if (body.step === "confirm") {
     const code = (body.code ?? "").trim();
     if (!code) return NextResponse.json({ error: "bad_request", message: "请输入验证码" }, { status: 400 });
-    const validCode = await consumeEmailVerificationCode(newEmail, code);
-    if (!validCode) return NextResponse.json({ error: "bad_code", message: "验证码错误或已过期" }, { status: 400 });
 
     const taken = await prisma.user.findUnique({ where: { email: newEmail } });
     if (taken && taken.id !== user.id) {
       return NextResponse.json({ error: "conflict", message: "该邮箱已被其他账号使用" }, { status: 409 });
     }
+
+    const validCode = await consumeEmailVerificationCode(newEmail, code);
+    if (!validCode) return NextResponse.json({ error: "bad_code", message: "验证码错误或已过期" }, { status: 400 });
+
     const updated = await prisma.user.update({ where: { id: user.id }, data: { email: newEmail } });
     return NextResponse.json({ ok: true, email: updated.email });
   }

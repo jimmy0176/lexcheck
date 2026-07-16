@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import type { PrismaClient } from "@prisma/client";
 import type { QuestionnaireConfig } from "@/lib/questionnaire-types";
 
-const LEGACY_TEMPLATE_NAME = "初始问卷";
+const LEGACY_TEMPLATE_NAME = "企业法律顾问体检问卷260628";
 
 async function readLegacyQuestionnaireConfig(): Promise<QuestionnaireConfig> {
   const filePath = path.join(process.cwd(), "public", "questionnaire.json");
@@ -12,7 +12,7 @@ async function readLegacyQuestionnaireConfig(): Promise<QuestionnaireConfig> {
 }
 
 /**
- * 幂等初始化：首次调用时把 public/questionnaire.json 建成一个"初始问卷"模板，
+ * 幂等初始化：首次调用时把 public/questionnaire.json 建成一个默认模板，
  * 并把历史遗留（templateId 为空）的 Checkup 回填指向它。可在任意请求路径上重复调用。
  */
 export async function ensureDefaultQuestionnaireTemplate(prisma: PrismaClient): Promise<void> {
@@ -23,7 +23,6 @@ export async function ensureDefaultQuestionnaireTemplate(prisma: PrismaClient): 
   const template = await prisma.questionnaireTemplate.create({
     data: {
       name: LEGACY_TEMPLATE_NAME,
-      note: "系统迁移时自动生成，内容来自旧版 questionnaire.json。",
       content: legacyConfig as unknown as object,
     },
   });

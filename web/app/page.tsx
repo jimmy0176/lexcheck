@@ -16,7 +16,7 @@ function BrandDecoWaves() {
         alt=""
         aria-hidden
         className="pointer-events-none absolute left-0 top-0"
-        style={{ width: 636, height: 515 }}
+        style={{ width: 522, height: 423 }}
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -24,7 +24,7 @@ function BrandDecoWaves() {
         alt=""
         aria-hidden
         className="pointer-events-none absolute bottom-0 left-0"
-        style={{ width: 630, height: 176 }}
+        style={{ width: 518, height: 145 }}
       />
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -32,25 +32,37 @@ function BrandDecoWaves() {
         alt=""
         aria-hidden
         className="pointer-events-none absolute bottom-0 right-0"
-        style={{ width: 518, height: 508 }}
+        style={{ width: 426, height: 417 }}
       />
     </>
   );
 }
 
-export default async function Home() {
+/** 只接受站内相对路径，避免 next 参数被用来跳到外部地址（开放重定向）。 */
+function safeNextPath(raw: string | undefined): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//")) return null;
+  return raw;
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?: Promise<{ next?: string }>;
+}) {
+  const nextPath = safeNextPath((await searchParams)?.next);
   const user = await getSessionUser();
   if (user) {
-    redirect(user.role === "lawyer" ? "/lawyer/checkups/lexcheck" : "/q");
+    redirect(nextPath ?? (user.role === "lawyer" ? "/lawyer/checkups/lexcheck" : "/q"));
   }
 
   return (
     <main className="flex min-h-dvh">
       <div className="flex w-full flex-col items-center justify-center bg-muted/12 px-8 py-16 sm:w-1/2 sm:px-16 lg:px-24">
-        <div className="w-full max-w-[35rem] rounded-2xl bg-white p-12 shadow-xl sm:p-14 lg:p-16">
-          <h1 className="text-6xl font-normal tracking-tight text-[#007BFC]">欢迎回来</h1>
-          <div className="mt-12">
-            <HomeLoginPanel />
+        <div className="w-full max-w-[35rem] rounded-2xl bg-white p-10 shadow-xl sm:p-12 lg:p-14">
+          <h1 className="text-3xl font-normal tracking-tight text-[#007BFC]">欢迎回来</h1>
+          <div className="mt-8">
+            <HomeLoginPanel next={nextPath ?? undefined} />
           </div>
         </div>
       </div>
@@ -61,14 +73,14 @@ export default async function Home() {
         <div className="relative z-10 flex justify-end px-8 pt-8">
           <button
             type="button"
-            className="flex h-[66px] items-center justify-center rounded-md border border-white px-8 text-xl text-white transition-colors hover:bg-white/10"
+            className="flex h-11 items-center justify-center rounded-md border border-white px-6 text-sm text-white transition-colors hover:bg-white/10"
           >
             联系我们
           </button>
         </div>
 
         <div className="relative z-10 flex flex-1 items-center justify-center px-8">
-          <span className="-translate-y-16 font-heading text-7xl font-semibold leading-none tracking-[0.06em] text-white lg:text-8xl">
+          <span className="-translate-y-12 font-heading text-5xl font-semibold leading-none tracking-[0.06em] text-white lg:text-6xl">
             HE Partners
           </span>
         </div>
