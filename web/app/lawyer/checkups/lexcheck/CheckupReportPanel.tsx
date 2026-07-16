@@ -87,6 +87,14 @@ function formatDuration(ms: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+type FinalReportState = {
+  reportText: string;
+  updatedAt: string;
+  finalizedAt: string | null;
+  emailSentAt: string | null;
+  emailSentTo: string | null;
+};
+
 export function CheckupReportPanel({
   token,
   sections,
@@ -97,6 +105,8 @@ export function CheckupReportPanel({
   questionnaireStatus,
   submittedAt,
   questionnaireVersion,
+  initialFinalReport,
+  clientEmail,
 }: {
   token: string;
   sections: QuestionnaireSection[];
@@ -107,6 +117,8 @@ export function CheckupReportPanel({
   questionnaireStatus: "draft" | "submitted";
   submittedAt: Date | null;
   questionnaireVersion: string | null;
+  initialFinalReport: FinalReportState | null;
+  clientEmail: string | null;
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -114,7 +126,19 @@ export function CheckupReportPanel({
   const [qDetailMode, setQDetailMode] = useState<"risk-only" | "all">("risk-only");
   const [reportMode, setReportMode] = useState<"concat" | "fusion" | "advanced">("fusion");
   const [genBusy, setGenBusy] = useState(false);
-  const [reportText, setReportText] = useState("");
+  const [reportText, setReportText] = useState(initialFinalReport?.reportText ?? "");
+  const [editMode, setEditMode] = useState(false);
+  const [savedReportText, setSavedReportText] = useState(initialFinalReport?.reportText ?? "");
+  const [savingReport, setSavingReport] = useState(false);
+  const [finalizedAt, setFinalizedAt] = useState<string | null>(initialFinalReport?.finalizedAt ?? null);
+  const [finalizing, setFinalizing] = useState(false);
+  const [emailSentAt, setEmailSentAt] = useState<string | null>(initialFinalReport?.emailSentAt ?? null);
+  const [emailSentTo, setEmailSentTo] = useState<string | null>(initialFinalReport?.emailSentTo ?? null);
+  const [showSendPanel, setShowSendPanel] = useState(false);
+  const [sendTo, setSendTo] = useState(clientEmail ?? "");
+  const [sendSubject, setSendSubject] = useState("");
+  const [sendMessage, setSendMessage] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<string | null>(null);
   const [selectedHistoryCreatedAt, setSelectedHistoryCreatedAt] = useState<string | null>(null);
   const [runDetail, setRunDetail] = useState<{
@@ -148,7 +172,9 @@ export function CheckupReportPanel({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (initialFinalReport?.reportText) return; // 已有保存到数据库的报告，以它为准，不用本地缓存的最近一次生成结果覆盖
     setReportText(localStorage.getItem(checkupReportStorageKey(token)) ?? "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => {
@@ -222,6 +248,7 @@ export function CheckupReportPanel({
       }
 
       setReportText(json.reportText);
+      setEditMode(false);
       setSelectedHistoryJobId(null);
       setSelectedHistoryCreatedAt(null);
       setRunDetail((d) => ({ ...d, moduleCount: json.moduleCount ?? null }));
@@ -267,6 +294,82 @@ export function CheckupReportPanel({
       setMsg("Word 已导出");
     } catch (e) {
       setErr(String(e));
+    }
+  }
+
+  async function saveReport() {
+    const text = reportText.trim();
+    if (!text) {
+      setErr("没有可保存的内容");
+      return;
+    }
+    setSavingReport(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/lawyer/checkups/${encodeURIComponent(token)}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reportText: text }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        finalReport?: { reportText: string; finalizedAt: string | null };
+        message?: string;
+      };
+      if (!res.ok || !json.ok || !json.finalReport) throw new Error(json.message ?? "保存失败");
+      setSavedReportText(json.finalReport.reportText);
+      setFinalizedAt(json.finalReport.finalizedAt ?? null);
+      setEditMode(false);
+      setMsg("已保存");
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSavingReport(false);
+    }
+  }
+
+  async function toggleFinalize(next: boolean) {
+    setFinalizing(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/lawyer/checkups/${encodeURIComponent(token)}/report`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ finalize: next }),
+      });
+      const json = (await res.json()) as { ok?: boolean; finalizedAt?: string | null; message?: string };
+      if (!res.ok || !json.ok) throw new Error(json.message ?? "操作失败");
+      setFinalizedAt(json.finalizedAt ?? null);
+      setMsg(next ? "已定稿" : "已取消定稿");
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  async function sendReportEmail() {
+    setSendingEmail(true);
+    setErr(null);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/lawyer/checkups/${encodeURIComponent(token)}/report/send-email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: sendTo, subject: sendSubject, message: sendMessage }),
+      });
+      const json = (await res.json()) as { ok?: boolean; sentTo?: string; message?: string };
+      if (!res.ok || !json.ok) throw new Error(json.message ?? "发送失败");
+      setEmailSentAt(new Date().toISOString());
+      setEmailSentTo(json.sentTo ?? sendTo);
+      setShowSendPanel(false);
+      setMsg(`已发送至 ${json.sentTo ?? sendTo}`);
+    } catch (e) {
+      setErr(String(e instanceof Error ? e.message : e));
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -403,13 +506,83 @@ export function CheckupReportPanel({
                   </div>
                 ) : null}
 
-                {reportText.trim() ? (
+                {finalizedAt ? (
+                  <div className="mb-2 mt-3 flex shrink-0 items-center justify-between gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-2 text-[11px] text-emerald-900 dark:text-emerald-100">
+                    <span>
+                      已定稿于 {new Date(finalizedAt).toLocaleString()}
+                      {emailSentAt ? ` · 已发送至 ${emailSentTo}（${new Date(emailSentAt).toLocaleString()}）` : null}
+                    </span>
+                    <button
+                      type="button"
+                      className="font-medium underline underline-offset-2 disabled:opacity-50"
+                      disabled={finalizing}
+                      onClick={() => void toggleFinalize(false)}
+                    >
+                      取消定稿
+                    </button>
+                  </div>
+                ) : null}
+
+                {editMode ? (
+                  <textarea
+                    value={reportText}
+                    onChange={(e) => setReportText(e.target.value)}
+                    className="min-h-0 flex-1 resize-none overflow-y-auto rounded-md border bg-background px-3 py-2 font-mono text-xs leading-relaxed"
+                  />
+                ) : reportText.trim() ? (
                   <div ref={reportBodyRef} className="min-h-0 flex-1 overflow-y-auto py-3 text-xs">
                     <QuickExamReportMarkdown markdown={reportText} />
                   </div>
                 ) : (
                   <div className="min-h-0 flex-1" />
                 )}
+
+                {showSendPanel ? (
+                  <div className="mt-2 shrink-0 space-y-2 rounded-md border border-border/60 px-3 py-2.5">
+                    <div className="text-xs font-medium text-foreground">发送报告到客户邮箱</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="block space-y-1">
+                        <span className="text-[11px] text-muted-foreground">收件邮箱</span>
+                        <input
+                          value={sendTo}
+                          onChange={(e) => setSendTo(e.target.value)}
+                          placeholder="name@example.com"
+                          className="h-8 w-full rounded-sm border bg-background px-2 text-xs"
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-[11px] text-muted-foreground">邮件主题（留空则自动生成）</span>
+                        <input
+                          value={sendSubject}
+                          onChange={(e) => setSendSubject(e.target.value)}
+                          className="h-8 w-full rounded-sm border bg-background px-2 text-xs"
+                        />
+                      </label>
+                    </div>
+                    <label className="block space-y-1">
+                      <span className="text-[11px] text-muted-foreground">邮件正文（留空则自动生成，报告以 Word 附件发送）</span>
+                      <textarea
+                        value={sendMessage}
+                        onChange={(e) => setSendMessage(e.target.value)}
+                        rows={3}
+                        className="w-full resize-none rounded-sm border bg-background px-2 py-1.5 text-xs"
+                      />
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={sendingEmail || !sendTo.trim()}
+                        onClick={() => void sendReportEmail()}
+                      >
+                        {sendingEmail ? "发送中…" : "发送"}
+                      </Button>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setShowSendPanel(false)}>
+                        取消
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
 
                 {runDetail.startedAt != null ? (
                   <div className="mt-2 shrink-0 space-y-1 rounded-sm border border-border/60 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
@@ -423,7 +596,7 @@ export function CheckupReportPanel({
                   </div>
                 ) : null}
 
-                <div className="mt-2 flex shrink-0 items-center justify-between gap-2 py-1.5 text-base">
+                <div className="mt-2 flex shrink-0 flex-wrap items-center justify-between gap-2 py-1.5 text-base">
                   <div className="min-w-0 flex-1 truncate">
                     {err ? (
                       <span className="text-destructive">{err}</span>
@@ -431,14 +604,58 @@ export function CheckupReportPanel({
                       <span className="text-muted-foreground">{msg}</span>
                     ) : (
                       <span className="text-muted-foreground">
-                        {reportText.trim() ? "体检报告已生成" : "尚未生成体检报告"}
+                        {!reportText.trim()
+                          ? "尚未生成体检报告"
+                          : reportText !== savedReportText
+                            ? "有未保存的修改"
+                            : "体检报告已生成"}
                       </span>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-3">
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9 text-sm"
+                      disabled={!reportText.trim() || Boolean(finalizedAt)}
+                      onClick={() => setEditMode((v) => !v)}
+                    >
+                      {editMode ? "预览" : "编辑"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9 text-sm"
+                      disabled={savingReport || !reportText.trim() || Boolean(finalizedAt) || reportText === savedReportText}
+                      onClick={() => void saveReport()}
+                    >
+                      {savingReport ? "保存中…" : "保存"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9 text-sm"
+                      disabled={finalizing || !savedReportText.trim() || Boolean(finalizedAt)}
+                      onClick={() => void toggleFinalize(true)}
+                    >
+                      {finalizing ? "处理中…" : "定稿"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-9 text-sm"
+                      disabled={!savedReportText.trim()}
+                      onClick={() => setShowSendPanel((v) => !v)}
+                    >
+                      发送客户邮箱
+                    </Button>
                     <select
                       value={reportMode}
-                      disabled={genBusy}
+                      disabled={genBusy || Boolean(finalizedAt)}
                       onChange={(e) =>
                         setReportMode(
                           e.target.value === "concat"
@@ -458,7 +675,7 @@ export function CheckupReportPanel({
                       type="button"
                       size="default"
                       className="h-9 rounded-lg border border-primary/30 bg-gradient-to-b from-primary to-primary/85 px-4 text-sm font-medium text-primary-foreground shadow-sm shadow-primary/30 transition-all hover:from-primary/95 hover:to-primary/80 hover:shadow-md"
-                      disabled={genBusy}
+                      disabled={genBusy || Boolean(finalizedAt)}
                       onClick={(e) => {
                         e.preventDefault();
                         void generateReport();

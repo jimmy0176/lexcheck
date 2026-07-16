@@ -29,6 +29,12 @@ export async function PATCH(req: Request) {
       backupLlmModel?: string;
       backupLlmApiKey?: string;
       backupLlmBaseUrl?: string;
+      smtpHost?: string;
+      smtpPort?: number;
+      smtpSecure?: boolean;
+      smtpUser?: string;
+      smtpPass?: string;
+      smtpFromName?: string;
     };
 
     const data: Record<string, unknown> = {};
@@ -56,6 +62,17 @@ export async function PATCH(req: Request) {
     if (typeof body.backupLlmModel === "string") data.backupLlmModel = body.backupLlmModel.trim() || null;
     if (typeof body.backupLlmApiKey === "string") data.backupLlmApiKey = body.backupLlmApiKey.trim() || null;
     if (typeof body.backupLlmBaseUrl === "string") data.backupLlmBaseUrl = body.backupLlmBaseUrl.trim() || null;
+    if (typeof body.smtpHost === "string") data.smtpHost = body.smtpHost.trim() || null;
+    if (typeof body.smtpPort === "number") {
+      if (!Number.isFinite(body.smtpPort) || body.smtpPort <= 0) {
+        return NextResponse.json({ error: "bad_request", message: "SMTP 端口须为正数" }, { status: 400 });
+      }
+      data.smtpPort = Math.round(body.smtpPort);
+    }
+    if (typeof body.smtpSecure === "boolean") data.smtpSecure = body.smtpSecure;
+    if (typeof body.smtpUser === "string") data.smtpUser = body.smtpUser.trim() || null;
+    if (typeof body.smtpPass === "string") data.smtpPass = body.smtpPass.trim() || null;
+    if (typeof body.smtpFromName === "string") data.smtpFromName = body.smtpFromName.trim() || null;
 
     const { prisma } = await import("@/lib/prisma");
     const settings = await prisma.authSettings.update({ where: { id: "singleton" }, data });

@@ -9,7 +9,8 @@ type ClientRow = {
   id: string;
   name: string | null;
   companyName: string | null;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   createdAt: string;
 };
 
@@ -17,6 +18,7 @@ export function ClientConfigPanel() {
   const [clients, setClients] = useState<ClientRow[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
+  const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newName, setNewName] = useState("");
   const [newCompany, setNewCompany] = useState("");
@@ -26,6 +28,8 @@ export function ClientConfigPanel() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCompany, setEditCompany] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editBusy, setEditBusy] = useState(false);
 
   async function loadClients() {
@@ -51,10 +55,11 @@ export function ClientConfigPanel() {
       const res = await fetch("/api/lawyer/clients", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: newPhone, name: newName, companyName: newCompany }),
+        body: JSON.stringify({ email: newEmail, phone: newPhone, name: newName, companyName: newCompany }),
       });
       const json = (await res.json()) as { ok?: boolean; user?: ClientRow; message?: string };
       if (!res.ok || !json.ok) throw new Error(json.message ?? "添加失败");
+      setNewEmail("");
       setNewPhone("");
       setNewName("");
       setNewCompany("");
@@ -70,6 +75,8 @@ export function ClientConfigPanel() {
     setEditingId(c.id);
     setEditName(c.name ?? "");
     setEditCompany(c.companyName ?? "");
+    setEditEmail(c.email ?? "");
+    setEditPhone(c.phone ?? "");
   }
 
   function cancelEdit() {
@@ -82,7 +89,7 @@ export function ClientConfigPanel() {
       const res = await fetch(`/api/lawyer/clients/${c.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editName, companyName: editCompany }),
+        body: JSON.stringify({ name: editName, companyName: editCompany, email: editEmail, phone: editPhone }),
       });
       const json = (await res.json()) as { ok?: boolean; message?: string };
       if (!res.ok || !json.ok) throw new Error(json.message ?? "保存失败");
@@ -96,7 +103,7 @@ export function ClientConfigPanel() {
   }
 
   async function deleteClient(c: ClientRow) {
-    if (!window.confirm(`确认删除客户账号 ${c.companyName ?? c.phone}？此操作不可恢复。`)) return;
+    if (!window.confirm(`确认删除客户账号 ${c.companyName ?? c.email ?? c.phone}？此操作不可恢复。`)) return;
     setErr(null);
     try {
       const res = await fetch(`/api/lawyer/clients/${c.id}`, { method: "DELETE" });
@@ -121,7 +128,11 @@ export function ClientConfigPanel() {
           <h2 className="text-sm font-medium">新建客户账号</h2>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <label className="text-xs text-muted-foreground">手机号</label>
+              <label className="text-xs text-muted-foreground">邮箱</label>
+              <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground">手机号（可选）</label>
               <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} className={inputCls} />
             </div>
             <div>
@@ -150,6 +161,7 @@ export function ClientConfigPanel() {
               <table className="w-full text-left text-sm">
                 <thead className="border-b bg-muted/30 text-xs text-muted-foreground">
                   <tr>
+                    <th className="px-3 py-2 font-medium">邮箱</th>
                     <th className="px-3 py-2 font-medium">手机号</th>
                     <th className="px-3 py-2 font-medium">联系人姓名</th>
                     <th className="px-3 py-2 font-medium">公司名称</th>
@@ -162,7 +174,28 @@ export function ClientConfigPanel() {
                     const isEditing = editingId === c.id;
                     return (
                       <tr key={c.id} className="border-b last:border-0">
-                        <td className="px-3 py-2">{c.phone}</td>
+                        <td className="px-3 py-2">
+                          {isEditing ? (
+                            <input
+                              value={editEmail}
+                              onChange={(e) => setEditEmail(e.target.value)}
+                              className="h-8 w-40 rounded-sm border bg-background px-2 text-sm"
+                            />
+                          ) : (
+                            c.email ?? "—"
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {isEditing ? (
+                            <input
+                              value={editPhone}
+                              onChange={(e) => setEditPhone(e.target.value)}
+                              className="h-8 w-28 rounded-sm border bg-background px-2 text-sm"
+                            />
+                          ) : (
+                            c.phone ?? "—"
+                          )}
+                        </td>
                         <td className="px-3 py-2">
                           {isEditing ? (
                             <input

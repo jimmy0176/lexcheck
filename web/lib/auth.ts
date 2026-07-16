@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { User } from "@prisma/client";
@@ -13,6 +13,52 @@ export const PHONE_PATTERN = /^1[3-9]\d{9}$/;
 
 export function isValidPhone(phone: string): boolean {
   return PHONE_PATTERN.test(phone.trim());
+}
+
+export const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(email: string): boolean {
+  return EMAIL_PATTERN.test(email.trim());
+}
+
+const SCRYPT_KEYLEN = 64;
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, SCRYPT_KEYLEN).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  const [salt, hash] = stored.split(":");
+  if (!salt || !hash) return false;
+  const candidate = scryptSync(password, salt, SCRYPT_KEYLEN);
+  const expected = Buffer.from(hash, "hex");
+  if (candidate.length !== expected.length) return false;
+  return timingSafeEqual(candidate, expected);
+}
+
+const EMAIL_CODE_TTL_MINUTES = 10;
+
+/** 生成一个 6 位邮箱验证码并落库（不负责发送）；调用方拿到返回值后自行通过系统邮箱发出。 */
+export async function createEmailVerificationCode(email: string): Promise<string> {
+  const { prisma } = await import("@/lib/prisma");
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + EMAIL_CODE_TTL_MINUTES * 60 * 1000);
+  await prisma.emailVerificationCode.create({ data: { email, code, expiresAt } });
+  return code;
+}
+
+/** 校验并一次性消费一个邮箱验证码；成功返回 true，过期/错误/已用过返回 false。 */
+export async function consumeEmailVerificationCode(email: string, code: string): Promise<boolean> {
+  const { prisma } = await import("@/lib/prisma");
+  const record = await prisma.emailVerificationCode.findFirst({
+    where: { email, code, consumedAt: null, expiresAt: { gt: new Date() } },
+    orderBy: { createdAt: "desc" },
+  });
+  if (!record) return false;
+  await prisma.emailVerificationCode.update({ where: { id: record.id }, data: { consumedAt: new Date() } });
+  return true;
 }
 
 /** 幂等初始化：确保单例配置行和种子管理员账号存在。可在任意请求路径上重复调用。 */

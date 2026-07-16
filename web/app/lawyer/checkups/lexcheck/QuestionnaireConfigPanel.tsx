@@ -20,7 +20,7 @@ type TemplateItem = {
 
 type XlsxError = { sheet: string; row: number; message: string };
 
-type ClientItem = { id: string; name: string | null; companyName: string | null; phone: string };
+type ClientItem = { id: string; name: string | null; companyName: string | null; email: string | null; phone: string | null };
 
 type CollectedItem = {
   id: string;
@@ -653,7 +653,7 @@ export function QuestionnaireConfigPanel() {
                           })
                         }
                       />
-                      {c.companyName || c.name || c.phone}（{c.phone}）
+                      {c.companyName || c.name || c.email || c.phone}（{c.email ?? c.phone ?? "无联系方式"}）
                     </label>
                   ))
                 )}

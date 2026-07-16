@@ -43,7 +43,11 @@ enum RegistrationMode {
 
 model User {
   id          String   @id @default(cuid())
-  phone       String   @unique
+  /** 主账号标识，新账号必填；未设置密码时仅可用邮箱验证码登录。 */
+  email        String?  @unique
+  passwordHash String?
+  /** 辅助联系方式，短信验证码接入前仍可用于登录（沿用共享临时验证码机制）；新账号非必填。 */
+  phone       String?  @unique
   role        UserRole
   isAdmin     Boolean  @default(false)
   name        String?
@@ -60,6 +64,18 @@ model User {
   llmModel      String?
   llmApiKey     String?
   llmBaseUrl    String?
+}
+
+/** 邮箱验证码（登录/注册/换绑邮箱通用），每次生成新码、限时有效、一次性消费。 */
+model EmailVerificationCode {
+  id         String    @id @default(cuid())
+  email      String
+  code       String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, code])
 }
 
 model Session {
@@ -93,6 +109,14 @@ model AuthSettings {
   backupLlmModel      String?
   backupLlmApiKey     String?
   backupLlmBaseUrl    String?
+
+  /** 系统邮箱（SMTP），用于向客户发送报告等系统邮件。 */
+  smtpHost     String?
+  smtpPort     Int      @default(465)
+  smtpSecure   Boolean  @default(true)
+  smtpUser     String?
+  smtpPass     String?
+  smtpFromName String?
 }
 
 model Checkup {
@@ -198,6 +222,11 @@ model CheckupFinalReport {
   notesText      String?
   generatedAt    DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
+
+  /** 非空即代表已定稿（锁定编辑，需先取消定稿才能再次保存/重新生成）。 */
+  finalizedAt    DateTime?
+  emailSentAt    DateTime?
+  emailSentTo    String?
 }
 
 /**

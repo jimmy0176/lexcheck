@@ -11,7 +11,14 @@ export default async function ProfilePage() {
       <div className="mx-auto w-full max-w-lg px-6 py-16">
         <h1 className="text-2xl font-semibold tracking-tight">个人资料</h1>
         <div className="mt-6">
-          <ProfileForm initialName={user.name ?? ""} role={user.role} companyName={user.companyName} phone={user.phone} />
+          <ProfileForm
+            initialName={user.name ?? ""}
+            role={user.role}
+            companyName={user.companyName}
+            phone={user.phone}
+            email={user.email}
+            hasPassword={Boolean(user.passwordHash)}
+          />
         </div>
       </div>
     </main>

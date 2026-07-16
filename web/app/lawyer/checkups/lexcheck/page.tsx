@@ -61,19 +61,21 @@ export default async function LawyerLexcheckPage({
       const all = await prisma.checkup.findMany({
         orderBy: [{ submittedAt: { sort: "desc", nulls: "last" } }, { savedAt: "desc" }],
         include: {
-          quickExamJobs: { where: { status: "success" }, select: { id: true }, take: 1 },
+          workspace: { include: { finalReport: { select: { finalizedAt: true, emailSentAt: true } } } },
         },
       });
       let notSubmitted = 0;
-      let submittedNotMade = 0;
-      let madeNotConfirmed = 0;
-      const confirmed = 0; // 报告确认/反馈标记功能尚未实现，暂时恒为 0
+      let submitted = 0;
+      let finalized = 0;
+      let feedback = 0;
       for (const c of all) {
-        if (c.quickExamJobs.length > 0) madeNotConfirmed += 1;
-        else if (c.status === "submitted") submittedNotMade += 1;
+        const finalReport = c.workspace?.finalReport;
+        if (finalReport?.emailSentAt) feedback += 1;
+        else if (finalReport?.finalizedAt) finalized += 1;
+        else if (c.status === "submitted") submitted += 1;
         else notSubmitted += 1;
       }
-      dashboardStats = { total: all.length, notSubmitted, submittedNotMade, madeNotConfirmed, confirmed };
+      dashboardStats = { total: all.length, notSubmitted, submitted, finalized, feedback };
       dashboardRows = all.map((c) => ({
         token: c.token,
         companyName: c.companyName,
@@ -82,6 +84,8 @@ export default async function LawyerLexcheckPage({
         status: c.status,
         savedAt: c.savedAt,
         submittedAt: c.submittedAt,
+        finalizedAt: c.workspace?.finalReport?.finalizedAt ?? null,
+        emailSentAt: c.workspace?.finalReport?.emailSentAt ?? null,
       }));
     } catch {
       dbError = true;
@@ -98,6 +102,15 @@ export default async function LawyerLexcheckPage({
     }
   }
 
+  let finalReportRaw: {
+    reportText: string;
+    updatedAt: Date;
+    finalizedAt: Date | null;
+    emailSentAt: Date | null;
+    emailSentTo: string | null;
+  } | null = null;
+  let clientEmail: string | null = null;
+
   if (view === "report" || view === "prompt-config") {
     const activeToken = selectedToken || fallbackToken;
 
@@ -106,13 +119,14 @@ export default async function LawyerLexcheckPage({
         const { prisma } = await import("@/lib/prisma");
         const selectedBase = await prisma.checkup.findUnique({
           where: { token: activeToken },
-          include: { template: { select: { name: true } } },
+          include: { template: { select: { name: true } }, client: { select: { email: true } } },
         });
         if (selectedBase) {
           const workspace = await prisma.checkupWorkspace.upsert({
             where: { checkupId: selectedBase.id },
             create: { checkupId: selectedBase.id, progressJson: {} },
             update: {},
+            include: { finalReport: true },
           });
           selected = {
             ...selectedBase,
@@ -120,6 +134,8 @@ export default async function LawyerLexcheckPage({
             reportTemplate: workspace.reportTemplate ?? "",
           };
           templateName = selectedBase.template?.name ?? null;
+          clientEmail = selectedBase.client?.email ?? null;
+          finalReportRaw = workspace.finalReport;
           config = await readQuestionnaireConfigForCheckup(prisma, selectedBase);
         }
       } catch {
@@ -129,6 +145,15 @@ export default async function LawyerLexcheckPage({
   }
 
   const answers = selected ? ((selected.answersJson ?? {}) as Answers) : null;
+  const finalReport = finalReportRaw
+    ? {
+        reportText: finalReportRaw.reportText,
+        updatedAt: finalReportRaw.updatedAt.toISOString(),
+        finalizedAt: finalReportRaw.finalizedAt ? finalReportRaw.finalizedAt.toISOString() : null,
+        emailSentAt: finalReportRaw.emailSentAt ? finalReportRaw.emailSentAt.toISOString() : null,
+        emailSentTo: finalReportRaw.emailSentTo,
+      }
+    : null;
 
   let reportPickerRows: DashboardRow[] = [];
   if (view === "report" && !selected && !dbError) {
@@ -228,6 +253,8 @@ export default async function LawyerLexcheckPage({
                     questionnaireStatus={selected.status}
                     submittedAt={selected.submittedAt}
                     questionnaireVersion={templateName}
+                    initialFinalReport={finalReport}
+                    clientEmail={clientEmail}
                   />
                 ) : (
                   <ReportQuestionnairePicker rows={reportPickerRows} />

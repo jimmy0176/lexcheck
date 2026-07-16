@@ -21,6 +21,12 @@ type SettingsState = {
   backupLlmModel: string;
   backupLlmApiKey: string;
   backupLlmBaseUrl: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  smtpPass: string;
+  smtpFromName: string;
 };
 
 function LlmProfileFields({
@@ -108,7 +114,8 @@ function LlmProfileFields({
 
 type UserRow = {
   id: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   role: string;
   isAdmin: boolean;
   name: string | null;
@@ -123,7 +130,7 @@ export function AdminAccountsClient({
   initialSettings: SettingsState;
   initialUsers: UserRow[];
 }) {
-  const [activeTab, setActiveTab] = useState<"register" | "accounts" | "llm" | "other">("register");
+  const [activeTab, setActiveTab] = useState<"register" | "accounts" | "llm" | "email" | "other">("register");
   const [settings, setSettings] = useState<SettingsState>(initialSettings);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
@@ -133,7 +140,10 @@ export function AdminAccountsClient({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editCompany, setEditCompany] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [editBusy, setEditBusy] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newRole, setNewRole] = useState<"lawyer" | "client">("client");
   const [newName, setNewName] = useState("");
@@ -148,6 +158,42 @@ export function AdminAccountsClient({
   const [testingBackup, setTestingBackup] = useState(false);
   const [backupTestHint, setBackupTestHint] = useState<string | null>(null);
   const [backupTestErr, setBackupTestErr] = useState<string | null>(null);
+
+  const [testEmailTo, setTestEmailTo] = useState("");
+  const [testingEmail, setTestingEmail] = useState(false);
+  const [emailTestHint, setEmailTestHint] = useState<string | null>(null);
+  const [emailTestErr, setEmailTestErr] = useState<string | null>(null);
+
+  async function testEmailSend() {
+    setTestingEmail(true);
+    setEmailTestHint(null);
+    setEmailTestErr(null);
+    try {
+      const res = await fetch("/api/admin/email/test-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          smtpHost: settings.smtpHost.trim(),
+          smtpPort: settings.smtpPort,
+          smtpSecure: settings.smtpSecure,
+          smtpUser: settings.smtpUser.trim(),
+          smtpPass: settings.smtpPass.trim(),
+          smtpFromName: settings.smtpFromName.trim(),
+          to: testEmailTo.trim(),
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      if (json.ok) {
+        setEmailTestHint(json.message ?? "发送成功");
+      } else {
+        setEmailTestErr(json.error ?? "发送失败");
+      }
+    } catch (e) {
+      setEmailTestErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTestingEmail(false);
+    }
+  }
 
   async function testLlmConnection(kind: "shared" | "backup") {
     const providerId = kind === "shared" ? settings.sharedLlmProviderId : settings.backupLlmProviderId;
@@ -213,6 +259,7 @@ export function AdminAccountsClient({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          email: newEmail,
           phone: newPhone,
           role: newRole,
           name: newName,
@@ -223,6 +270,7 @@ export function AdminAccountsClient({
       const json = (await res.json()) as { ok?: boolean; user?: UserRow; message?: string };
       if (!res.ok || !json.ok || !json.user) throw new Error(json.message ?? "添加失败");
       setUsers((prev) => [json.user as UserRow, ...prev]);
+      setNewEmail("");
       setNewPhone("");
       setNewName("");
       setNewCompany("");
@@ -252,6 +300,8 @@ export function AdminAccountsClient({
     setEditingId(user.id);
     setEditName(user.name ?? "");
     setEditCompany(user.companyName ?? "");
+    setEditEmail(user.email ?? "");
+    setEditPhone(user.phone ?? "");
   }
 
   function cancelEdit() {
@@ -266,8 +316,8 @@ export function AdminAccountsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(
           user.role === "client"
-            ? { name: editName, companyName: editCompany }
-            : { name: editName }
+            ? { name: editName, companyName: editCompany, email: editEmail, phone: editPhone }
+            : { name: editName, email: editEmail, phone: editPhone }
         ),
       });
       const json = (await res.json()) as { ok?: boolean; user?: UserRow; message?: string };
@@ -300,6 +350,7 @@ export function AdminAccountsClient({
             { key: "register", label: "注册模式" },
             { key: "accounts", label: "账号管理" },
             { key: "llm", label: "公用大模型" },
+            { key: "email", label: "系统邮箱" },
             { key: "other", label: "其他设置" },
           ] as const
         ).map((tab) => (
@@ -372,6 +423,109 @@ export function AdminAccountsClient({
             />
           </label>
         ) : null}
+
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" disabled={savingSettings} onClick={() => void saveSettings()}>
+            {savingSettings ? "保存中…" : "保存设置"}
+          </Button>
+          {settingsMsg ? <span className="text-sm text-muted-foreground">{settingsMsg}</span> : null}
+          {settingsErr ? <span className="text-sm text-destructive">{settingsErr}</span> : null}
+        </div>
+      </section>
+      ) : null}
+
+      {activeTab === "email" ? (
+      <section className="space-y-4 rounded-md border p-4">
+        <div>
+          <h2 className="text-base font-medium">系统邮箱（SMTP）</h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            用于向客户发送体检报告等系统邮件。多数邮箱需要在邮箱管理后台单独开启 SMTP 服务并生成授权码（不是登录密码）。
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">SMTP 服务器</span>
+            <input
+              value={settings.smtpHost}
+              onChange={(e) => setSettings((s) => ({ ...s, smtpHost: e.target.value }))}
+              placeholder="smtp.163.com"
+              className={inputCls}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">端口</span>
+            <input
+              type="number"
+              value={settings.smtpPort}
+              onChange={(e) => setSettings((s) => ({ ...s, smtpPort: Number(e.target.value) || 0 }))}
+              className={inputCls}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">发件邮箱</span>
+            <input
+              value={settings.smtpUser}
+              onChange={(e) => setSettings((s) => ({ ...s, smtpUser: e.target.value }))}
+              placeholder="name@example.com"
+              className={inputCls}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">授权码 / 密码</span>
+            <input
+              value={settings.smtpPass}
+              onChange={(e) => setSettings((s) => ({ ...s, smtpPass: e.target.value }))}
+              type="password"
+              autoComplete="off"
+              className={inputCls}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">发件人显示名称（可选）</span>
+            <input
+              value={settings.smtpFromName}
+              onChange={(e) => setSettings((s) => ({ ...s, smtpFromName: e.target.value }))}
+              placeholder="Lexcheck"
+              className={inputCls}
+            />
+          </label>
+          <label className="flex items-center gap-2 pt-6">
+            <Checkbox
+              checked={settings.smtpSecure}
+              onCheckedChange={(v) => setSettings((s) => ({ ...s, smtpSecure: v === true }))}
+            />
+            <span className="text-sm">使用 SSL（端口 465 通常需要勾选，587 通常不勾选）</span>
+          </label>
+        </div>
+
+        <div className="space-y-2 border-t pt-3">
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">测试收件邮箱</span>
+            <input
+              value={testEmailTo}
+              onChange={(e) => setTestEmailTo(e.target.value)}
+              placeholder="用于接收测试邮件的邮箱地址"
+              className={inputCls}
+            />
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={testingEmail}
+              onClick={() => void testEmailSend()}
+            >
+              {testingEmail ? "发送中…" : "发送测试邮件"}
+            </Button>
+            {emailTestErr ? (
+              <span className="text-xs text-destructive">{emailTestErr}</span>
+            ) : emailTestHint ? (
+              <span className="text-xs text-muted-foreground">{emailTestHint}</span>
+            ) : null}
+          </div>
+        </div>
 
         <div className="flex items-center gap-2">
           <Button type="button" size="sm" disabled={savingSettings} onClick={() => void saveSettings()}>
@@ -505,7 +659,11 @@ export function AdminAccountsClient({
         <h2 className="text-base font-medium">添加账号</h2>
         <div className="grid grid-cols-2 gap-3">
           <label className="block space-y-1">
-            <span className="text-sm text-muted-foreground">手机号</span>
+            <span className="text-sm text-muted-foreground">邮箱</span>
+            <input value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className={inputCls} />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">手机号（可选）</span>
             <input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} className={inputCls} />
           </label>
           <label className="block space-y-1">
@@ -551,6 +709,7 @@ export function AdminAccountsClient({
           <table className="w-full text-left text-sm">
             <thead className="border-b bg-muted/30 text-xs text-muted-foreground">
               <tr>
+                <th className="px-3 py-2 font-medium">邮箱</th>
                 <th className="px-3 py-2 font-medium">手机号</th>
                 <th className="px-3 py-2 font-medium">角色</th>
                 <th className="px-3 py-2 font-medium">姓名</th>
@@ -565,7 +724,28 @@ export function AdminAccountsClient({
                 const isEditing = editingId === u.id;
                 return (
                   <tr key={u.id} className="border-b last:border-0">
-                    <td className="px-3 py-2">{u.phone}</td>
+                    <td className="px-3 py-2">
+                      {isEditing ? (
+                        <input
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          className="h-8 w-40 rounded-sm border bg-background px-2 text-sm"
+                        />
+                      ) : (
+                        u.email ?? "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {isEditing ? (
+                        <input
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          className="h-8 w-28 rounded-sm border bg-background px-2 text-sm"
+                        />
+                      ) : (
+                        u.phone ?? "—"
+                      )}
+                    </td>
                     <td className="px-3 py-2">{u.role === "lawyer" ? "律师" : "客户"}</td>
                     <td className="px-3 py-2">
                       {isEditing ? (

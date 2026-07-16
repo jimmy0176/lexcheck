@@ -8,21 +8,23 @@ export type DashboardRow = {
   status: "draft" | "submitted";
   savedAt: Date;
   submittedAt: Date | null;
+  finalizedAt?: Date | null;
+  emailSentAt?: Date | null;
 };
 
 export type DashboardStats = {
   total: number;
   notSubmitted: number;
-  submittedNotMade: number;
-  madeNotConfirmed: number;
-  confirmed: number;
+  submitted: number;
+  finalized: number;
+  feedback: number;
 };
 
 const FUNNEL_SEGMENTS = [
   { key: "notSubmitted", label: "未提交", color: "bg-muted-foreground/25" },
-  { key: "submittedNotMade", label: "已提交未制作", color: "bg-primary/35" },
-  { key: "madeNotConfirmed", label: "已制作未反馈", color: "bg-primary/65" },
-  { key: "confirmed", label: "已反馈（办结）", color: "bg-emerald-500" },
+  { key: "submitted", label: "已提交", color: "bg-primary/35" },
+  { key: "finalized", label: "已定稿", color: "bg-primary/65" },
+  { key: "feedback", label: "已反馈", color: "bg-emerald-500" },
 ] as const;
 
 export function Dashboard({ stats, rows }: { stats: DashboardStats; rows: DashboardRow[] }) {
@@ -60,16 +62,17 @@ export function Dashboard({ stats, rows }: { stats: DashboardStats; rows: Dashbo
           <thead className="border-b border-border/60 bg-muted/30 text-xs text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">企业名称</th>
-              <th className="px-3 py-2 font-medium">联系人</th>
               <th className="px-3 py-2 font-medium">电话号码</th>
               <th className="px-3 py-2 font-medium">问卷状态</th>
+              <th className="px-3 py-2 font-medium">已定稿</th>
+              <th className="px-3 py-2 font-medium">已反馈</th>
               <th className="px-3 py-2 font-medium">提交时间</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-muted-foreground">
+                <td colSpan={6} className="px-3 py-6 text-center text-muted-foreground">
                   暂无问卷数据。
                 </td>
               </tr>
@@ -84,11 +87,12 @@ export function Dashboard({ stats, rows }: { stats: DashboardStats; rows: Dashbo
                       {row.companyName?.trim() || "未填写公司名称"}
                     </Link>
                   </td>
-                  <td className="px-3 py-2 text-foreground">{row.contactName?.trim() || "—"}</td>
                   <td className="px-3 py-2 text-foreground">{row.contactPhone?.trim() || "—"}</td>
                   <td className="px-3 py-2 text-foreground">
-                    {row.status === "submitted" ? "已提交" : "草稿"}
+                    {row.status === "submitted" ? "已提交" : "未提交"}
                   </td>
+                  <td className="px-3 py-2 text-foreground">{row.finalizedAt ? "是" : "—"}</td>
+                  <td className="px-3 py-2 text-foreground">{row.emailSentAt ? "是" : "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {row.submittedAt ? row.submittedAt.toLocaleString() : "—"}
                   </td>

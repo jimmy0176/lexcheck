@@ -56,9 +56,16 @@ export default async function LawyerAdminPage() {
                     backupLlmModel: settings.backupLlmModel ?? "",
                     backupLlmApiKey: settings.backupLlmApiKey ?? "",
                     backupLlmBaseUrl: settings.backupLlmBaseUrl ?? "",
+                    smtpHost: settings.smtpHost ?? "",
+                    smtpPort: settings.smtpPort,
+                    smtpSecure: settings.smtpSecure,
+                    smtpUser: settings.smtpUser ?? "",
+                    smtpPass: settings.smtpPass ?? "",
+                    smtpFromName: settings.smtpFromName ?? "",
                   }}
                   initialUsers={users.map((u) => ({
                     id: u.id,
+                    email: u.email,
                     phone: u.phone,
                     role: u.role,
                     isAdmin: u.isAdmin,

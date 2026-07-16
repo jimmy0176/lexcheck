@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireAdminApi } from "@/lib/auth";
+import { isValidEmail, isValidPhone, requireAdminApi } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -13,6 +13,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       name?: string;
       companyName?: string;
       isAdmin?: boolean;
+      email?: string;
+      phone?: string;
     };
 
     if (id === admin.id && typeof body.isAdmin === "boolean" && !body.isAdmin) {
@@ -22,12 +24,36 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       );
     }
 
+    const { prisma } = await import("@/lib/prisma");
     const data: Record<string, unknown> = {};
     if (typeof body.name === "string") data.name = body.name.trim() || null;
     if (typeof body.companyName === "string") data.companyName = body.companyName.trim() || null;
     if (typeof body.isAdmin === "boolean") data.isAdmin = body.isAdmin;
+    if (typeof body.email === "string") {
+      const email = body.email.trim();
+      if (!email || !isValidEmail(email)) {
+        return NextResponse.json({ error: "bad_request", message: "请输入正确的邮箱地址" }, { status: 400 });
+      }
+      const taken = await prisma.user.findUnique({ where: { email } });
+      if (taken && taken.id !== id) {
+        return NextResponse.json({ error: "conflict", message: "该邮箱已被其他账号使用" }, { status: 409 });
+      }
+      data.email = email;
+    }
+    if (typeof body.phone === "string") {
+      const phone = body.phone.trim();
+      if (phone) {
+        if (!isValidPhone(phone)) {
+          return NextResponse.json({ error: "bad_request", message: "手机号格式不正确" }, { status: 400 });
+        }
+        const taken = await prisma.user.findUnique({ where: { phone } });
+        if (taken && taken.id !== id) {
+          return NextResponse.json({ error: "conflict", message: "该手机号已被其他账号使用" }, { status: 409 });
+        }
+      }
+      data.phone = phone || null;
+    }
 
-    const { prisma } = await import("@/lib/prisma");
     const user = await prisma.user.update({ where: { id }, data });
     return NextResponse.json({ ok: true, user });
   } catch (e) {
