@@ -33,7 +33,7 @@ export async function sendSystemEmail(
     connectionTimeout: 15_000,
     socketTimeout: 30_000,
   });
-  const fromName = settings.smtpFromName?.trim() || "Lexcheck";
+  const fromName = settings.smtpFromName?.trim() || "HE Partners";
   await transporter.sendMail({
     from: `"${fromName}" <${settings.smtpUser!.trim()}>`,
     to: opts.to,

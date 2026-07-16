@@ -61,7 +61,7 @@ async function runAiExtraction(params: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${params.apiKey.trim()}`,
-      "User-Agent": "Lexcheck/1.0 (attachment-ai-extract)",
+      "User-Agent": "HE-Partners/1.0 (attachment-ai-extract)",
     },
     body: JSON.stringify({
       model: params.model.trim(),

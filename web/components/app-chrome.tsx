@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/site-header";
 export function AppChrome({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const hideChrome =
+    pathname === "/" ||
     pathname.startsWith("/lawyer/checkups") ||
     pathname.startsWith("/lawyer/clients") ||
     pathname.startsWith("/lawyer/admin");

@@ -486,7 +486,7 @@ export function AdminAccountsClient({
             <input
               value={settings.smtpFromName}
               onChange={(e) => setSettings((s) => ({ ...s, smtpFromName: e.target.value }))}
-              placeholder="Lexcheck"
+              placeholder="HE Partners"
               className={inputCls}
             />
           </label>

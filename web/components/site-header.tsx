@@ -25,7 +25,6 @@ type SessionUser = {
 export function SiteHeader() {
   const pathname = usePathname();
   const router = useRouter();
-  const hideMarketingNav = pathname.startsWith("/lawyer/checkups");
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
   const [loginOpen, setLoginOpen] = useState(false);
 
@@ -60,40 +59,6 @@ export function SiteHeader() {
           >
             HE Partners
           </Link>
-          {!hideMarketingNav ? (
-            <nav className="hidden items-center gap-5 sm:flex">
-              <Link
-                href="/#about"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                关于
-              </Link>
-              <Link
-                href="/#team"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                团队
-              </Link>
-              <Link
-                href="/#apps"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                应用
-              </Link>
-              <Link
-                href="/#scenarios"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                资源
-              </Link>
-              <Link
-                href="/#contact"
-                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-              >
-                联系我们
-              </Link>
-            </nav>
-          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-4 sm:gap-5">
           {user === undefined ? null : user ? (

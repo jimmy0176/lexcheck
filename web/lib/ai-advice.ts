@@ -191,7 +191,7 @@ export async function generateDeepSeekAdvice(
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
-          "User-Agent": "Lexcheck/1.0 (Next.js server)",
+          "User-Agent": "HE-Partners/1.0 (Next.js server)",
         },
         body,
         signal: controller.signal,

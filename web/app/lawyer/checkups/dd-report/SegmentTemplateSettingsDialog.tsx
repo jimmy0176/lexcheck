@@ -662,7 +662,7 @@ export function SegmentTemplateSettingsDialog({
               <div className="mt-3 flex flex-wrap gap-2">
                 {!isQuickExam ? (
                   <span className="rounded-full bg-primary/12 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                    Lexcheck · 尽调分部
+                    HE Partners · 尽调分部
                   </span>
                 ) : null}
                 {isCustomSelected && effectivePick ? (

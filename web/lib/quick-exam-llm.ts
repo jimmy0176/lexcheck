@@ -41,7 +41,7 @@ export async function callChatCompletions(opts: {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
-      "User-Agent": "Lexcheck/1.0 (quick-exam-report)",
+      "User-Agent": "HE-Partners/1.0 (quick-exam-report)",
     },
     body: JSON.stringify(body),
     cache: "no-store",

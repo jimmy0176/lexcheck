@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   const secure = body.smtpSecure ?? true;
   const user = (body.smtpUser ?? "").trim();
   const pass = (body.smtpPass ?? "").trim();
-  const fromName = (body.smtpFromName ?? "").trim() || "Lexcheck";
+  const fromName = (body.smtpFromName ?? "").trim() || "HE Partners";
   const to = (body.to ?? "").trim();
 
   if (!host) return NextResponse.json({ ok: false, error: "请填写 SMTP 服务器地址" }, { status: 400 });
@@ -43,9 +43,9 @@ export async function POST(req: Request) {
       { smtpHost: host, smtpPort: port, smtpSecure: secure, smtpUser: user, smtpPass: pass, smtpFromName: fromName },
       {
         to,
-        subject: "Lexcheck 系统邮箱测试",
-        text: "这是一封来自 Lexcheck 系统邮箱配置的测试邮件，收到即代表配置可用。",
-        html: "<p>这是一封来自 <b>Lexcheck</b> 系统邮箱配置的测试邮件，收到即代表配置可用。</p>",
+        subject: "HE Partners 系统邮箱测试",
+        text: "这是一封来自 HE Partners 系统邮箱配置的测试邮件，收到即代表配置可用。",
+        html: "<p>这是一封来自 <b>HE Partners</b> 系统邮箱配置的测试邮件，收到即代表配置可用。</p>",
       }
     );
 

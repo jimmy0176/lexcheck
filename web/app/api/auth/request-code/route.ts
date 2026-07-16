@@ -31,7 +31,7 @@ export async function POST(req: Request) {
       try {
         await sendSystemEmail(settings, {
           to: email,
-          subject: "Lexcheck 登录验证码",
+          subject: "HE Partners 登录验证码",
           text: `您的验证码是：${code}，10 分钟内有效。如非本人操作请忽略此邮件。`,
           html: `<p>您的验证码是：<b style="font-size:18px">${code}</b>，10 分钟内有效。</p><p>如非本人操作请忽略此邮件。</p>`,
         });

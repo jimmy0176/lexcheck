@@ -64,7 +64,7 @@ export async function POST(req: Request) {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
-        "User-Agent": "Lexcheck/1.0 (connectivity-test)",
+        "User-Agent": "HE-Partners/1.0 (connectivity-test)",
       },
       body: JSON.stringify({
         model,

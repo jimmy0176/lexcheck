@@ -49,9 +49,9 @@ export async function POST(req: Request) {
   try {
     await sendSystemEmail(settings, {
       to: newEmail,
-      subject: "Lexcheck 邮箱换绑验证码",
-      text: `您正在将 Lexcheck 账号绑定到此邮箱，验证码是：${code}，10 分钟内有效。如非本人操作请忽略此邮件。`,
-      html: `<p>您正在将 Lexcheck 账号绑定到此邮箱，验证码是：<b style="font-size:18px">${code}</b>，10 分钟内有效。</p><p>如非本人操作请忽略此邮件。</p>`,
+      subject: "HE Partners 邮箱换绑验证码",
+      text: `您正在将 HE Partners 账号绑定到此邮箱，验证码是：${code}，10 分钟内有效。如非本人操作请忽略此邮件。`,
+      html: `<p>您正在将 HE Partners 账号绑定到此邮箱，验证码是：<b style="font-size:18px">${code}</b>，10 分钟内有效。</p><p>如非本人操作请忽略此邮件。</p>`,
     });
   } catch (e) {
     return NextResponse.json(
