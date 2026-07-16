@@ -172,7 +172,7 @@ export function SegmentTemplateSettingsDialog({
   onPromptChange: (v: string) => void;
   onOutputChange: (v: string) => void;
   onPersist: () => void;
-  /** 快速体检：独立文案与预览逻辑，不与尽调分部混用 */
+  /** 体检报告（原"快速体检"，概念已合并，UI 文案统一改称"体检报告"）：独立文案与预览逻辑，不与尽调分部混用 */
   variant?: "segment" | "quickExam";
 }) {
   const isQuickExam = variant === "quickExam";
@@ -432,11 +432,11 @@ export function SegmentTemplateSettingsDialog({
           <div className="flex items-start justify-between gap-3 pr-8">
             <div className="space-y-1.5 text-left">
               <Dialog.Title className="text-base font-semibold sm:text-lg">
-                {isQuickExam ? "快速体检 · 提示词与模版" : "本段提示词与输出模版"}
+                {isQuickExam ? "体检报告 · 提示词与模版" : "本段提示词与输出模版"}
               </Dialog.Title>
               <Dialog.Description className="sr-only">
                 {isQuickExam
-                  ? "编辑 prompt 与 output 两份 Markdown，保存后用于快速体检报告。"
+                  ? "编辑 prompt 与 output 两份 Markdown，保存后用于体检报告。"
                   : "编辑尽调分部的补充指令与输出结构，可保存为当前应用模版或模版库。"}
               </Dialog.Description>
               {!isQuickExam ? (
@@ -493,7 +493,7 @@ export function SegmentTemplateSettingsDialog({
               {dirty ? (
                 <span>
                   <span className="font-medium text-foreground">未保存</span>
-                  ，保存后用于快速体检报告生成。
+                  ，保存后用于体检报告生成。
                 </span>
               ) : (
                 <span>
@@ -655,7 +655,7 @@ export function SegmentTemplateSettingsDialog({
                 </div>
               ) : (
                 <p className="mt-3 text-xs text-muted-foreground">
-                  用于简要版快速体检报告；接口按 prompt.md、output.md 分别提交。
+                  用于简要版体检报告；接口按 prompt.md、output.md 分别提交。
                 </p>
               )}
 

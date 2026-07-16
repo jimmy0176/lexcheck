@@ -55,7 +55,7 @@ function triggerDownload(blob: Blob, filename: string) {
 
 function safeBaseName(raw: string) {
   const t = raw.trim().replace(/[/\\?%*:|"<>]/g, "_").slice(0, 80);
-  return t || "快速体检报告";
+  return t || "体检报告";
 }
 
 function timeSuffix() {

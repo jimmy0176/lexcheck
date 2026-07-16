@@ -111,7 +111,7 @@ export function ClientConfigPanel() {
   return (
     <div className="h-full overflow-y-auto px-8 py-4">
       <div className="space-y-4">
-        <h1 className="text-lg font-semibold">客户配置</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">客户管理</h1>
 
         {err ? (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{err}</div>

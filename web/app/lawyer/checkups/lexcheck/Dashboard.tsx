@@ -30,7 +30,7 @@ export function Dashboard({ stats, rows }: { stats: DashboardStats; rows: Dashbo
     <div className="flex h-full flex-col overflow-y-auto px-8 py-4">
       <div className="shrink-0">
         <div className="flex items-baseline justify-between gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">仪表盘</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">总览</h1>
           <span className="text-sm text-muted-foreground">已发放 {stats.total} 份问卷</span>
         </div>
 

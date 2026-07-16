@@ -38,16 +38,16 @@ export function ProjectProgressPanel({
   );
 
   return (
-    <div className="mt-3 border-t border-white/10 pt-3">
-      <div className="text-xs font-medium text-white/60">当前进度</div>
-      <div className="mt-1 text-xs text-white/50">
+    <div className="mt-3 border-t border-border pt-3">
+      <div className="text-xs font-medium text-foreground">当前进度</div>
+      <div className="mt-1 text-xs text-muted-foreground">
         已完成 {completedSteps} / {WORKFLOW_STEPS.length}
         {saving ? " · 保存中…" : ""}
       </div>
       <Progress className="mt-2 h-1.5" value={progressPercent} />
       <div className="mt-3 grid gap-1.5">
         {WORKFLOW_STEPS.map((step) => (
-          <label key={step} className="flex items-center gap-2 text-xs text-white/80">
+          <label key={step} className="flex items-center gap-2 text-xs text-foreground">
             <Checkbox
               checked={Boolean(progress[step])}
               onCheckedChange={(checked) => {

@@ -22,7 +22,18 @@ type XlsxError = { sheet: string; row: number; message: string };
 
 type ClientItem = { id: string; name: string | null; companyName: string | null; phone: string };
 
+type CollectedItem = {
+  id: string;
+  token: string;
+  companyName: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  submittedAt: string | null;
+  templateName: string | null;
+};
+
 export function QuestionnaireConfigPanel() {
+  const [activeTab, setActiveTab] = useState<"templates" | "assign" | "collected">("templates");
   const [templates, setTemplates] = useState<TemplateItem[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -48,6 +59,10 @@ export function QuestionnaireConfigPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [expandedConfig, setExpandedConfig] = useState<QuestionnaireConfig | null>(null);
   const [expandedLoading, setExpandedLoading] = useState(false);
+
+  const [collected, setCollected] = useState<CollectedItem[] | null>(null);
+  const [collectedErr, setCollectedErr] = useState<string | null>(null);
+  const [deletingToken, setDeletingToken] = useState<string | null>(null);
 
   async function loadTemplates() {
     setErr(null);
@@ -202,20 +217,86 @@ export function QuestionnaireConfigPanel() {
     }
   }
 
+  async function loadCollected() {
+    setCollectedErr(null);
+    try {
+      const res = await fetch("/api/lawyer/checkups?status=submitted", { cache: "no-store" });
+      if (!res.ok) throw new Error(`加载失败 ${res.status}`);
+      const json = (await res.json()) as { checkups: CollectedItem[] };
+      setCollected(json.checkups);
+    } catch (e) {
+      setCollectedErr(String(e));
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "collected" && collected === null) {
+      void loadCollected();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  async function deleteCollected(item: CollectedItem) {
+    if (
+      !window.confirm(
+        `确认删除「${item.companyName || item.contactName || item.token}」的已收集问卷？关联的已生成报告等信息将一并删除，此操作不可撤销。`
+      )
+    )
+      return;
+    setDeletingToken(item.token);
+    setCollectedErr(null);
+    try {
+      const res = await fetch(`/api/lawyer/checkups/${item.token}`, { method: "DELETE" });
+      const json = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      if (!res.ok) throw new Error(json.message ?? json.error ?? `删除失败 ${res.status}`);
+      await loadCollected();
+    } catch (e) {
+      setCollectedErr(String(e));
+    } finally {
+      setDeletingToken(null);
+    }
+  }
+
   return (
     <div className="h-full overflow-y-auto px-8 py-4">
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">问卷配置</h1>
-          <Button type="button" size="sm" onClick={() => setShowImport((v) => !v)}>
-            {showImport ? "取消导入" : "导入问卷"}
-          </Button>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">问卷管理</h1>
 
-        <p className="text-xs text-muted-foreground">
-          问卷内容通过 Excel 导入导出管理：导出现有问卷、在 Excel 中编辑「章节/题目/选项」三个工作表后重新导入即可生成一份新问卷。
-          已有客户填写过的问卷无法再编辑或删除，请导出后修改为新问卷。
-        </p>
+        <div className="flex shrink-0 items-stretch gap-4 border-b border-border">
+          <button
+            type="button"
+            onClick={() => setActiveTab("templates")}
+            className={`-mb-px shrink-0 border-b-2 px-1 py-2 text-base font-medium transition-colors ${
+              activeTab === "templates"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            模板管理
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("assign")}
+            className={`-mb-px shrink-0 border-b-2 px-1 py-2 text-base font-medium transition-colors ${
+              activeTab === "assign"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            问卷发放
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("collected")}
+            className={`-mb-px shrink-0 border-b-2 px-1 py-2 text-base font-medium transition-colors ${
+              activeTab === "collected"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            已收集问卷
+          </button>
+        </div>
 
         {err ? (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">{err}</div>
@@ -225,6 +306,14 @@ export function QuestionnaireConfigPanel() {
             {msg}
           </div>
         ) : null}
+
+        {activeTab === "templates" ? (
+        <>
+        <div className="flex justify-end">
+          <Button type="button" size="sm" onClick={() => setShowImport((v) => !v)}>
+            {showImport ? "取消导入" : "导入问卷"}
+          </Button>
+        </div>
 
         {showImport ? (
           <section className="space-y-3 rounded-md border p-4">
@@ -365,13 +454,6 @@ export function QuestionnaireConfigPanel() {
                                 >
                                   导出
                                 </a>
-                                <button
-                                  type="button"
-                                  className="text-muted-foreground underline underline-offset-2"
-                                  onClick={() => void openAssign(t)}
-                                >
-                                  推送设置
-                                </button>
                                 {!t.locked ? (
                                   <button
                                     type="button"
@@ -436,6 +518,54 @@ export function QuestionnaireConfigPanel() {
             </div>
           )}
         </section>
+        </>
+        ) : activeTab === "assign" ? (
+        <>
+        <section className="space-y-3 rounded-md border p-4">
+          <h2 className="text-sm font-medium">问卷发放（{templates?.length ?? 0}）</h2>
+          {!templates ? (
+            <div className="text-sm text-muted-foreground">加载中…</div>
+          ) : (
+            <div className="overflow-x-auto rounded-sm border">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b bg-muted/30 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">名称</th>
+                    <th className="px-3 py-2 font-medium">状态</th>
+                    <th className="px-3 py-2 font-medium">当前推送范围</th>
+                    <th className="px-3 py-2 font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {templates.map((t) => (
+                    <tr key={t.id} className="border-b last:border-0">
+                      <td className="px-3 py-2">{t.name}</td>
+                      <td className="px-3 py-2">
+                        {t.locked ? (
+                          <span className="text-amber-700 dark:text-amber-300">已锁定（{t.checkupCount} 份使用中）</span>
+                        ) : (
+                          <span className="text-muted-foreground">未锁定</span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {t.assignmentCount > 0 ? `已设置（${t.assignmentCount}）` : "未设置"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          className="text-muted-foreground underline underline-offset-2"
+                          onClick={() => void openAssign(t)}
+                        >
+                          设置推送
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
 
         {assigningId ? (
           <section className="space-y-3 rounded-md border p-4">
@@ -485,6 +615,62 @@ export function QuestionnaireConfigPanel() {
             </Button>
           </section>
         ) : null}
+        </>
+        ) : (
+        <>
+        {collectedErr ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {collectedErr}
+          </div>
+        ) : null}
+        <section className="space-y-3 rounded-md border p-4">
+          <h2 className="text-sm font-medium">已收集问卷（{collected?.length ?? 0}）</h2>
+          {!collected ? (
+            <div className="text-sm text-muted-foreground">加载中…</div>
+          ) : collected.length === 0 ? (
+            <div className="text-sm text-muted-foreground">暂无已提交的问卷。</div>
+          ) : (
+            <div className="overflow-x-auto rounded-sm border">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b bg-muted/30 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">公司名称</th>
+                    <th className="px-3 py-2 font-medium">联系人</th>
+                    <th className="px-3 py-2 font-medium">联系电话</th>
+                    <th className="px-3 py-2 font-medium">使用问卷</th>
+                    <th className="px-3 py-2 font-medium">提交时间</th>
+                    <th className="px-3 py-2 font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {collected.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="px-3 py-2">{item.companyName || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.contactName || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.contactPhone || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.templateName || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {item.submittedAt ? new Date(item.submittedAt).toLocaleString() : "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          className="text-destructive underline underline-offset-2 disabled:opacity-50"
+                          disabled={deletingToken === item.token}
+                          onClick={() => void deleteCollected(item)}
+                        >
+                          {deletingToken === item.token ? "删除中…" : "删除"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+        </>
+        )}
       </div>
     </div>
   );

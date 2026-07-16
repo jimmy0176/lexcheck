@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LoginDialog } from "@/components/auth/LoginDialog";
 
 type SessionUser = {
   id: string;
@@ -25,6 +27,7 @@ export function SiteHeader() {
   const router = useRouter();
   const hideMarketingNav = pathname.startsWith("/lawyer/checkups");
   const [user, setUser] = useState<SessionUser | null | undefined>(undefined);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +52,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/55">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-6">
+      <div className="flex h-16 w-full items-center justify-between gap-3 px-5">
         <div className="flex min-w-0 items-center gap-6 sm:gap-10">
           <Link
             href="/"
@@ -94,46 +97,59 @@ export function SiteHeader() {
         </div>
         <div className="flex shrink-0 items-center gap-4 sm:gap-5">
           {user === undefined ? null : user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="text-sm text-foreground/90 transition-colors hover:text-foreground"
-                >
-                  {user.name?.trim() || (user.role === "lawyer" ? "律师账号" : "客户账号")}
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuLabel>{user.role === "lawyer" ? "律师账号" : "客户账号"}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {user.role === "lawyer" ? (
+            <>
+              <Link
+                href={user.role === "lawyer" ? "/lawyer/checkups/lexcheck" : "/q"}
+                className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {user.role === "lawyer" ? "工作台" : "我的问卷"}
+              </Link>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <User className="h-4 w-4" />
+                    <span>{user.name?.trim() || (user.role === "lawyer" ? "律师账号" : "客户账号")}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuLabel>{user.role === "lawyer" ? "律师账号" : "客户账号"}</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/lawyer/checkups/lexcheck">工作台</Link>
+                    <Link href="/profile">个人资料</Link>
                   </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem asChild>
-                    <Link href="/q">我的问卷</Link>
-                  </DropdownMenuItem>
-                )}
-                {user.isAdmin ? (
-                  <DropdownMenuItem asChild>
-                    <Link href="/lawyer/admin">账号管理</Link>
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => void handleLogout()}>退出登录</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  {user.isAdmin ? (
+                    <DropdownMenuItem asChild>
+                      <Link href="/lawyer/admin">后台管理</Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => void handleLogout()}>退出登录</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
-            <Link
-              href="/login"
+            <button
+              type="button"
+              onClick={() => setLoginOpen(true)}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              登录
-            </Link>
+              注册/登录
+            </button>
           )}
         </div>
       </div>
+      <LoginDialog
+        open={loginOpen}
+        onOpenChange={setLoginOpen}
+        onSuccess={(nextUser) => {
+          setUser(nextUser);
+          setLoginOpen(false);
+          router.refresh();
+        }}
+      />
     </header>
   );
 }

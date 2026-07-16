@@ -12,10 +12,8 @@ import {
 
 export function AccountTopBar({
   lawyerName,
-  isAdmin,
 }: {
   lawyerName?: string | null;
-  isAdmin: boolean;
 }) {
   const router = useRouter();
 
@@ -27,11 +25,6 @@ export function AccountTopBar({
 
   return (
     <div className="flex shrink-0 items-center justify-end gap-3 border-b px-4 py-[15px]">
-      {isAdmin ? (
-        <Link href="/lawyer/admin" className="text-sm text-muted-foreground hover:text-foreground">
-          账号管理
-        </Link>
-      ) : null}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -43,6 +36,9 @@ export function AccountTopBar({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
+          <DropdownMenuItem asChild>
+            <Link href="/profile">个人资料</Link>
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void handleLogout()}>退出登录</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

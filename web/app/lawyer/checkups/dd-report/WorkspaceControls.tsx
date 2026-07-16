@@ -92,13 +92,7 @@ export function QuestionnairePickerButton({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <Button
-        type="button"
-        size="sm"
-        variant="ghost"
-        className="border-0 bg-transparent text-white hover:bg-sidebar-accent hover:text-white"
-        onClick={() => setOpen(true)}
-      >
+      <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
         {buttonLabel}
       </Button>
       <AlertDialogContent className="max-w-3xl p-0">
@@ -271,24 +265,23 @@ export function WorkspaceSettingsButtons({
     }
   }
 
-  const darkGhostBtn =
-    "w-full justify-start border-0 bg-transparent text-white/60 hover:bg-sidebar-accent hover:text-white";
+  const ghostBtn = "w-full justify-start";
 
   return (
     <div className="space-y-2">
-      <Button type="button" variant="ghost" className={darkGhostBtn} onClick={() => setPromptOpen(true)}>
+      <Button type="button" variant="ghost" className={ghostBtn} onClick={() => setPromptOpen(true)}>
         提示词模板
       </Button>
-      <Button type="button" variant="ghost" className={darkGhostBtn} onClick={() => setReportOpen(true)}>
+      <Button type="button" variant="ghost" className={ghostBtn} onClick={() => setReportOpen(true)}>
         报告输出模板
       </Button>
-      <Button type="button" variant="ghost" className={darkGhostBtn} onClick={() => setModelOpen(true)}>
+      <Button type="button" variant="ghost" className={ghostBtn} onClick={() => setModelOpen(true)}>
         大模型设置
       </Button>
 
       {(message || error) && (
         <div
-          className={`rounded-md border px-3 py-2 text-xs ${error ? "border-destructive/40 text-destructive" : "border-white/15 text-white/60"}`}
+          className={`rounded-md border px-3 py-2 text-xs ${error ? "border-destructive/40 text-destructive" : "border-border text-muted-foreground"}`}
         >
           {error ?? message}
         </div>

@@ -123,6 +123,7 @@ export function AdminAccountsClient({
   initialSettings: SettingsState;
   initialUsers: UserRow[];
 }) {
+  const [activeTab, setActiveTab] = useState<"register" | "accounts" | "llm" | "other">("register");
   const [settings, setSettings] = useState<SettingsState>(initialSettings);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
@@ -140,6 +141,49 @@ export function AdminAccountsClient({
   const [newIsAdmin, setNewIsAdmin] = useState(false);
   const [addBusy, setAddBusy] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
+
+  const [testingShared, setTestingShared] = useState(false);
+  const [sharedTestHint, setSharedTestHint] = useState<string | null>(null);
+  const [sharedTestErr, setSharedTestErr] = useState<string | null>(null);
+  const [testingBackup, setTestingBackup] = useState(false);
+  const [backupTestHint, setBackupTestHint] = useState<string | null>(null);
+  const [backupTestErr, setBackupTestErr] = useState<string | null>(null);
+
+  async function testLlmConnection(kind: "shared" | "backup") {
+    const providerId = kind === "shared" ? settings.sharedLlmProviderId : settings.backupLlmProviderId;
+    const model = kind === "shared" ? settings.sharedLlmModel : settings.backupLlmModel;
+    const apiKey = kind === "shared" ? settings.sharedLlmApiKey : settings.backupLlmApiKey;
+    const baseUrl = kind === "shared" ? settings.sharedLlmBaseUrl : settings.backupLlmBaseUrl;
+    const setTesting = kind === "shared" ? setTestingShared : setTestingBackup;
+    const setHint = kind === "shared" ? setSharedTestHint : setBackupTestHint;
+    const setErr = kind === "shared" ? setSharedTestErr : setBackupTestErr;
+
+    setTesting(true);
+    setHint(null);
+    setErr(null);
+    try {
+      const res = await fetch("/api/lawyer/llm/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          providerId,
+          model: model.trim(),
+          apiKey: apiKey.trim(),
+          baseUrlOverride: providerId === "custom" ? baseUrl.trim() : undefined,
+        }),
+      });
+      const json = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      if (json.ok) {
+        setHint(json.message ?? "连通成功");
+      } else {
+        setErr(json.error ?? "连通失败");
+      }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setTesting(false);
+    }
+  }
 
   async function saveSettings() {
     setSavingSettings(true);
@@ -250,6 +294,31 @@ export function AdminAccountsClient({
 
   return (
     <div className="space-y-8">
+      <div className="flex shrink-0 items-stretch gap-4 border-b border-border">
+        {(
+          [
+            { key: "register", label: "注册模式" },
+            { key: "accounts", label: "账号管理" },
+            { key: "llm", label: "公用大模型" },
+            { key: "other", label: "其他设置" },
+          ] as const
+        ).map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => setActiveTab(tab.key)}
+            className={`-mb-px shrink-0 border-b-2 px-1 py-2 text-base font-medium transition-colors ${
+              activeTab === tab.key
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "register" ? (
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-base font-medium">验证码与注册设置</h2>
 
@@ -304,6 +373,20 @@ export function AdminAccountsClient({
           </label>
         ) : null}
 
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" disabled={savingSettings} onClick={() => void saveSettings()}>
+            {savingSettings ? "保存中…" : "保存设置"}
+          </Button>
+          {settingsMsg ? <span className="text-sm text-muted-foreground">{settingsMsg}</span> : null}
+          {settingsErr ? <span className="text-sm text-destructive">{settingsErr}</span> : null}
+        </div>
+      </section>
+      ) : null}
+
+      {activeTab === "other" ? (
+      <section className="space-y-3 rounded-md border p-4">
+        <h2 className="text-base font-medium">其他设置</h2>
+
         <label className="block space-y-1">
           <span className="text-sm text-muted-foreground">客户重新填写问卷间隔（小时）</span>
           <input
@@ -325,7 +408,9 @@ export function AdminAccountsClient({
           {settingsErr ? <span className="text-sm text-destructive">{settingsErr}</span> : null}
         </div>
       </section>
+      ) : null}
 
+      {activeTab === "llm" ? (
       <section className="space-y-4 rounded-md border p-4">
         <div>
           <h2 className="text-base font-medium">大模型 Key 优先级</h2>
@@ -352,6 +437,22 @@ export function AdminAccountsClient({
               }))
             }
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={testingShared}
+              onClick={() => void testLlmConnection("shared")}
+            >
+              {testingShared ? "检测中…" : "检测连通性"}
+            </Button>
+            {sharedTestErr ? (
+              <span className="text-xs text-destructive">{sharedTestErr}</span>
+            ) : sharedTestHint ? (
+              <span className="text-xs text-muted-foreground">{sharedTestHint}</span>
+            ) : null}
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -371,6 +472,22 @@ export function AdminAccountsClient({
               }))
             }
           />
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={testingBackup}
+              onClick={() => void testLlmConnection("backup")}
+            >
+              {testingBackup ? "检测中…" : "检测连通性"}
+            </Button>
+            {backupTestErr ? (
+              <span className="text-xs text-destructive">{backupTestErr}</span>
+            ) : backupTestHint ? (
+              <span className="text-xs text-muted-foreground">{backupTestHint}</span>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex items-center gap-2">
@@ -381,7 +498,9 @@ export function AdminAccountsClient({
           {settingsErr ? <span className="text-sm text-destructive">{settingsErr}</span> : null}
         </div>
       </section>
+      ) : null}
 
+      {activeTab === "accounts" ? (
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-base font-medium">添加账号</h2>
         <div className="grid grid-cols-2 gap-3">
@@ -423,7 +542,9 @@ export function AdminAccountsClient({
           {addErr ? <span className="text-sm text-destructive">{addErr}</span> : null}
         </div>
       </section>
+      ) : null}
 
+      {activeTab === "accounts" ? (
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-base font-medium">账号列表（{users.length}）</h2>
         <div className="overflow-x-auto rounded-sm border">
@@ -530,6 +651,7 @@ export function AdminAccountsClient({
           </table>
         </div>
       </section>
+      ) : null}
     </div>
   );
 }

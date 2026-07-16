@@ -26,27 +26,31 @@ export async function POST(
   try {
     const body = (await req.json()) as {
       promptMd?: string;
-      outputMd?: string;
+      thirdPartyPromptMd?: string;
+      disclaimerText?: string;
       thresholds?: unknown;
       mode?: string;
     };
     const promptMd = (body.promptMd ?? "").trim();
-    const outputMd = (body.outputMd ?? "").trim();
+    const thirdPartyPromptMd = (body.thirdPartyPromptMd ?? "").trim();
+    const disclaimerText = (body.disclaimerText ?? "").trim();
     const thresholds = normalizeThresholds(body.thresholds);
-    const mode: ReportGenerationMode = body.mode === "fusion" ? "fusion" : "concat";
+    const mode: ReportGenerationMode =
+      body.mode === "concat" ? "concat" : body.mode === "advanced" ? "advanced" : "fusion";
 
     const { prisma } = await import("@/lib/prisma");
-    const { reportText, moduleCount, usedAi } = await generateCheckupReport({
+    const { reportText, moduleCount, usedAi, degraded } = await generateCheckupReport({
       prisma,
       token,
       lawyerId: lawyer.id,
       promptMd,
-      outputMd,
+      thirdPartyPromptMd,
+      disclaimerText,
       mode,
       thresholds,
     });
 
-    return NextResponse.json({ ok: true, reportText, moduleCount, usedAi });
+    return NextResponse.json({ ok: true, reportText, moduleCount, usedAi, degraded });
   } catch (e) {
     const msg = String(e);
     if (msg === "Error: not_found") {

@@ -12,59 +12,33 @@ import {
 import { readQuestionnaireConfigForCheckup } from "@/lib/questionnaire-templates";
 import { resolveLlmProfiles, callChatCompletionsWithFallback } from "@/lib/llm-resolve";
 import { parseJsonLenient } from "@/lib/quick-exam-json";
+import {
+  CHECKUP_REPORT_CONCAT_SECTION_KEY,
+  CHECKUP_REPORT_FUSION_SECTION_KEY,
+  CHECKUP_REPORT_ADVANCED_SECTION_KEY,
+  CHECKUP_REPORT_THIRDPARTY_SECTION_KEY,
+  CHECKUP_REPORT_DISCLAIMER_SECTION_KEY,
+  CHECKUP_REPORT_GUARDRAILS,
+  CHECKUP_REPORT_PROMPT_DEFAULTS,
+} from "@/lib/dd-segment-default-templates";
 
 const REPORT_ISSUER_NAME = "HE Partners";
 
-export type ReportGenerationMode = "concat" | "fusion";
+export type ReportGenerationMode = "concat" | "fusion" | "advanced";
 
-const SUMMARY_SYSTEM =
-  "你是谨慎、务实的企业法律顾问，负责为律所撰写体检报告中的两个片段：「报告摘要」与「重点整改顺序建议」。\n\n" +
-  "报告正文的各模块风险点已经由系统按问卷答案逐条拼装完成，不需要你生成，也不会提供给你——你只会拿到每个模块的名称、得分、优先级，以及客户在开放题中的自述内容。\n\n" +
-  "【硬性约束】\n" +
-  "- 只能使用提供的模块名称、分数、优先级和客户自述内容，禁止编造具体法律风险事实、禁止提及未在列表中出现的模块。\n" +
-  "- 简体中文，语气专业克制，不夸大风险。\n" +
-  "- 只输出一个 JSON 对象，键为 summary 和 actionPlan，两个键的值都必须是字符串（不能是嵌套对象或数组），不要 Markdown 代码围栏，不要多余的键。\n\n" +
-  "【summary 要求】\n" +
-  "2-4 句话，概述整体合规态势，优先点出优先级为「高」「中高」的模块（若存在），语言面向企业客户。\n\n" +
-  "【actionPlan 要求】\n" +
-  "值必须是一个字符串，内部按「第一阶段（1 个月内）」「第二阶段（2-3 个月内）」「第三阶段（3-6 个月内）」三段整理，每段以 **加粗标题** 开头，段落之间用换行分隔。\n" +
-  "分配规则：优先级「高」的模块放入第一阶段，「中高」放入第二阶段，「中」「低」放入第三阶段；某阶段没有对应模块时可省略该阶段或注明「无紧迫事项」。\n" +
-  "只提模块名称和处理方向，不复述具体风险细节。";
-
-const FUSION_SYSTEM =
-  "你是谨慎、务实的企业法律顾问，负责为律所撰写体检报告的三个片段：「报告摘要」「各模块风险评估正文」与「重点整改顺序建议」。\n\n" +
-  "每个模块命中的风险点已经由系统按问卷答案逐条整理完成（每条包含：具体问题、预设风险描述、预设整改建议），随「模块事实」一并提供给你。\n\n" +
-  "【硬性约束】\n" +
-  "- moduleBodies 必须同时涵盖每一条风险点的「风险描述」与「整改建议」两部分内容，不能只保留风险、省略建议——即使为了精简把多条风险合并叙述，也要让每条风险对应的建议清晰保留下来。\n" +
-  "- 只能整合、精简、润色已提供的风险描述与建议内容，禁止编造未提供的风险事实或建议、禁止提及列表之外的风险点、禁止做超出原文范围的分析扩展。\n" +
-  "- 每个模块正文必须分成两段，用一个空行隔开：第一段以「风险分析：」开头，整合精简表达该模块命中的全部风险点；第二段以「建议：」开头，整合精简表达对应的全部整改建议。每段内部比逐条罗列更精简、可用连贯文字或简短列表，但不得省略「风险分析：」「建议：」这两个开头标签，不需要重复模块名称和分数。\n" +
-  "- 简体中文，语气专业克制，不夸大风险。\n" +
-  "- 只输出一个 JSON 对象，键为 summary、moduleBodies、actionPlan；summary 和 actionPlan 的值必须是字符串（不能是嵌套对象或数组），不要 Markdown 代码围栏，不要多余的键。\n\n" +
-  "【summary 要求】\n" +
-  "2-4 句话，概述整体合规态势，优先点出优先级为「高」「中高」的模块（若存在），语言面向企业客户。\n\n" +
-  "【moduleBodies 要求】\n" +
-  "是一个 JSON 对象，键为模块在列表中的序号（从 0 开始的字符串，如 \"0\"、\"1\"），值为该模块整合润色后的风险评估正文（字符串）。\n\n" +
-  "【actionPlan 要求】\n" +
-  "值必须是一个字符串，内部按「第一阶段（1 个月内）」「第二阶段（2-3 个月内）」「第三阶段（3-6 个月内）」三段整理，每段以 **加粗标题** 开头，段落之间用换行分隔。\n" +
-  "分配规则：优先级「高」的模块放入第一阶段，「中高」放入第二阶段，「中」「低」放入第三阶段；某阶段没有对应模块时可省略该阶段或注明「无紧迫事项」。\n" +
-  "只提模块名称和处理方向，不复述具体风险细节。";
-
-const THIRD_PARTY_EXTRACTION_SYSTEM =
-  "你是谨慎的企业法律顾问助理，负责阅读一份三方企业背景报告（如企查查/天眼查一类的企业信息核查报告）原文，为体检报告提炼两段内容。\n\n" +
-  "【硬性约束】\n" +
-  "- 只能使用原文中明确出现的信息，禁止编造、禁止推测、禁止补全原文没有的字段（尤其是统一社会信用代码、法定代表人、注册资本等企业登记信息，宁可少写也不能编）。\n" +
-  "- 简体中文，语气专业克制，不夸大风险。\n" +
-  "- 只输出一个 JSON 对象，键为 companyInfo、highlights，值都必须是字符串（不能是嵌套对象或数组），不要 Markdown 代码围栏，不要多余的键。\n\n" +
-  "【companyInfo 要求】\n" +
-  "用一段话概述原文中出现的企业基本信息，可包含统一社会信用代码、法定代表人、注册资本、成立日期、经营状态、股东/主要人员等——仅限原文实际出现的项，原文没有的直接省略，不要写「未提及」之类的占位说明。\n\n" +
-  "【highlights 要求】\n" +
-  "用一段话概述原文中值得关注的风险点或异常信息（如经营异常、失信被执行、股权出质、行政处罚、诉讼记录等），如果原文没有明显风险，如实说明企业信息正常、未发现异常。";
+/** 由护栏（固定，不可编辑）+ 律师保存的效果文案（为空则用内置默认）拼成完整 system 提示词。 */
+function buildSystemPrompt(sectionKey: string, effectiveText: string): string {
+  const guardrail = CHECKUP_REPORT_GUARDRAILS[sectionKey] ?? "";
+  const effect = effectiveText.trim() || CHECKUP_REPORT_PROMPT_DEFAULTS[sectionKey] || "";
+  return [guardrail, effect].filter(Boolean).join("\n\n");
+}
 
 /** 从三方报告原文提取企业基本信息与重点风险提示；成功时缓存到附件行，避免每次生成报告都重新调用。 */
 async function getThirdPartyReportSection(
   prisma: PrismaClient,
   checkup: { id: string },
-  lawyerId: string
+  lawyerId: string,
+  thirdPartyPromptMd: string
 ): Promise<string | null> {
   const workspace = await prisma.checkupWorkspace.findUnique({ where: { checkupId: checkup.id } });
   if (!workspace?.thirdPartyReportEnabled) return null;
@@ -85,7 +59,7 @@ async function getThirdPartyReportSection(
 
   const result = await callChatCompletionsWithFallback(profiles, {
     messages: [
-      { role: "system", content: THIRD_PARTY_EXTRACTION_SYSTEM },
+      { role: "system", content: buildSystemPrompt(CHECKUP_REPORT_THIRDPARTY_SECTION_KEY, thirdPartyPromptMd) },
       { role: "user", content: `【三方报告原文】\n\n${attachment.extractedText}` },
     ],
     temperature: 0.2,
@@ -129,34 +103,55 @@ function coerceToText(v: unknown): string {
   return "";
 }
 
-function buildFusionModulesMarkdown(modules: ModuleAssembly[], bodies: Record<string, string>): string {
-  return modules
+function buildFusionModulesMarkdown(
+  modules: ModuleAssembly[],
+  bodies: Record<string, string>
+): { markdown: string; anyFallback: boolean } {
+  let anyFallback = false;
+  const markdown = modules
     .map((m, i) => {
-      const body = (bodies[String(i)] ?? "").trim() || m.bodyMarkdown;
+      const aiBody = (bodies[String(i)] ?? "").trim();
+      if (!aiBody) anyFallback = true;
+      const body = aiBody || m.bodyMarkdown;
       return `### ${m.title}模块　优先级：${m.priority}（${m.score}/${m.maxScore} 分）\n\n${body}`;
     })
     .join("\n\n");
+  return { markdown, anyFallback };
 }
-
-const DISCLAIMER_TEXT =
-  "本报告基于贵公司在体检问卷中提供的信息进行初步梳理和风险提示，不构成正式法律意见，亦不能替代律师就具体事项出具的专项法律意见书。" +
-  "如需就报告中涉及的具体风险采取行动，请与出具律师团队进一步沟通，由律师团队结合具体情况提供专项服务方案。";
 
 const NO_AI_NOTICE =
   "当前律师账号、管理员共用 Key、共用备用 Key 均不可用，本报告未调用大模型，仅按问卷答案与预设风险/建议文案自动拼装，不含摘要与整改顺序建议，请人工补充。";
+
+/** 高级模式返回一整段 Markdown，无结构化字段可核对，只做粗粒度完整性检查：是否出现固定小节标题、是否至少命中一个模块标题。 */
+function assessAdvancedOutput(raw: string, modules: ModuleAssembly[]): { text: string; degraded: boolean } {
+  const text = raw.trim();
+  if (!text) return { text: "", degraded: true };
+  const hasSummaryHeading = /###\s*报告摘要/.test(text);
+  const hasActionHeading = /###\s*重点整改顺序建议/.test(text);
+  const matchedModules = modules.filter((m) => text.includes(`${m.title}模块`)).length;
+  const degraded = !hasSummaryHeading || !hasActionHeading || (modules.length > 0 && matchedModules === 0);
+  return { text, degraded };
+}
 
 export async function generateCheckupReport(opts: {
   prisma: PrismaClient;
   token: string;
   lawyerId: string;
+  /** 当前选中生成模式（concat/fusion/advanced）对应标签页里、律师已保存的效果文案；为空则用该模式的内置默认 */
   promptMd: string;
-  outputMd: string;
+  /** 三方报告提取标签页里、律师已保存的效果文案；为空则用内置默认 */
+  thirdPartyPromptMd?: string;
+  /** "免责声明"标签页里、律师已保存的正文；为空则用内置默认，不经过大模型，逐字插入报告末尾 */
+  disclaimerText?: string;
   mode?: ReportGenerationMode;
   thresholds?: PriorityThresholds;
-}): Promise<{ reportText: string; moduleCount: number; usedAi: boolean }> {
-  const { prisma, token, lawyerId, promptMd, outputMd } = opts;
+}): Promise<{ reportText: string; moduleCount: number; usedAi: boolean; degraded: boolean }> {
+  const { prisma, token, lawyerId, promptMd } = opts;
+  const thirdPartyPromptMd = opts.thirdPartyPromptMd ?? "";
+  const disclaimerText =
+    (opts.disclaimerText ?? "").trim() || CHECKUP_REPORT_PROMPT_DEFAULTS[CHECKUP_REPORT_DISCLAIMER_SECTION_KEY]!;
   const thresholds = opts.thresholds ?? DEFAULT_PRIORITY_THRESHOLDS;
-  const mode: ReportGenerationMode = opts.mode ?? "concat";
+  const mode: ReportGenerationMode = opts.mode ?? "fusion";
 
   const checkup = await prisma.checkup.findUnique({ where: { token } });
   if (!checkup) throw new Error("not_found");
@@ -182,12 +177,12 @@ export async function generateCheckupReport(opts: {
   const fallbackModulesMarkdown =
     modules.length === 0 ? "本次体检未发现需要重点关注的合规风险项。" : buildModulesMarkdown(modules);
 
-  const thirdPartySection = await getThirdPartyReportSection(prisma, checkup, lawyerId);
+  const thirdPartySection = await getThirdPartyReportSection(prisma, checkup, lawyerId, thirdPartyPromptMd);
   const thirdPartyLines = thirdPartySection ? [thirdPartySection, ""] : [];
 
   const profiles = await resolveLlmProfiles(lawyerId);
 
-  if (profiles.length === 0) {
+  const noAiFallback = () => {
     const reportText = [
       ...headerLines,
       ...thirdPartyLines,
@@ -197,14 +192,65 @@ export async function generateCheckupReport(opts: {
       "",
       "### 免责声明",
       "",
-      DISCLAIMER_TEXT,
+      disclaimerText,
     ].join("\n");
+    return { reportText, moduleCount: modules.length, usedAi: false, degraded: false };
+  };
+
+  if (profiles.length === 0) {
+    const result = noAiFallback();
     await prisma.quickExamReportJob.create({
-      data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText },
+      data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText: result.reportText },
     });
-    return { reportText, moduleCount: modules.length, usedAi: false };
+    return result;
   }
 
+  if (mode === "advanced") {
+    const sectionKey = CHECKUP_REPORT_ADVANCED_SECTION_KEY;
+    const factsPayload = {
+      modules: modules.map((m) => ({
+        title: m.title,
+        score: m.score,
+        maxScore: m.maxScore,
+        priority: m.priority,
+        riskItems: m.riskItems,
+      })),
+      clientFreeformAnswers: freeformAnswers.length > 0 ? freeformAnswers : "（未填写）",
+    };
+    const result = await callChatCompletionsWithFallback(profiles, {
+      messages: [
+        { role: "system", content: buildSystemPrompt(sectionKey, promptMd) },
+        { role: "user", content: `【模块事实与客户自述】\n\n${JSON.stringify(factsPayload, null, 2)}` },
+      ],
+      temperature: 0.3,
+      max_tokens: 3600,
+    });
+
+    if (!result.ok) {
+      const fb = noAiFallback();
+      await prisma.quickExamReportJob.create({
+        data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText: fb.reportText },
+      });
+      return fb;
+    }
+
+    const { text: aiBody, degraded } = assessAdvancedOutput(result.text, modules);
+    if (!aiBody) {
+      const fb = noAiFallback();
+      await prisma.quickExamReportJob.create({
+        data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText: fb.reportText },
+      });
+      return fb;
+    }
+
+    const reportText = [...headerLines, ...thirdPartyLines, aiBody, "", "### 免责声明", "", disclaimerText].join("\n");
+    await prisma.quickExamReportJob.create({
+      data: { checkupId: checkup.id, status: "success", mode: "assembled_advanced", progressJson: {}, reportText },
+    });
+    return { reportText, moduleCount: modules.length, usedAi: true, degraded };
+  }
+
+  const sectionKey = mode === "fusion" ? CHECKUP_REPORT_FUSION_SECTION_KEY : CHECKUP_REPORT_CONCAT_SECTION_KEY;
   const factsPayload = {
     modules: modules.map((m) => ({
       title: m.title,
@@ -217,18 +263,9 @@ export async function generateCheckupReport(opts: {
   };
 
   const messages: Array<{ role: "system" | "user"; content: string }> = [
-    { role: "system", content: mode === "fusion" ? FUSION_SYSTEM : SUMMARY_SYSTEM },
+    { role: "system", content: buildSystemPrompt(sectionKey, promptMd) },
+    { role: "user", content: `【模块事实与客户自述】\n\n${JSON.stringify(factsPayload, null, 2)}` },
   ];
-  if (promptMd.trim()) {
-    messages.push({ role: "user", content: `【补充语气/角色指引】\n\n${promptMd}` });
-  }
-  if (outputMd.trim()) {
-    messages.push({ role: "user", content: `【补充格式要求】\n\n${outputMd}` });
-  }
-  messages.push({
-    role: "user",
-    content: `【模块事实与客户自述】\n\n${JSON.stringify(factsPayload, null, 2)}`,
-  });
 
   const result = await callChatCompletionsWithFallback(profiles, {
     messages,
@@ -238,21 +275,11 @@ export async function generateCheckupReport(opts: {
   });
 
   if (!result.ok) {
-    const reportText = [
-      ...headerLines,
-      ...thirdPartyLines,
-      `> ${NO_AI_NOTICE}`,
-      "",
-      fallbackModulesMarkdown,
-      "",
-      "### 免责声明",
-      "",
-      DISCLAIMER_TEXT,
-    ].join("\n");
+    const fb = noAiFallback();
     await prisma.quickExamReportJob.create({
-      data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText },
+      data: { checkupId: checkup.id, status: "success", mode: "assembled_no_ai", progressJson: {}, reportText: fb.reportText },
     });
-    return { reportText, moduleCount: modules.length, usedAi: false };
+    return fb;
   }
 
   const raw = result.text;
@@ -260,6 +287,7 @@ export async function generateCheckupReport(opts: {
   let summary = "";
   let actionPlan = "";
   const moduleBodies: Record<string, string> = {};
+  let degraded = false;
   try {
     const parsed = parseJsonLenient(raw) as {
       summary?: unknown;
@@ -276,18 +304,27 @@ export async function generateCheckupReport(opts: {
     }
   } catch {
     summary = raw.trim();
+    degraded = true;
   }
-  if (!summary) summary = "（未生成摘要）";
+  if (!summary) {
+    summary = "（未生成摘要）";
+    degraded = true;
+  }
   if (!actionPlan) {
     actionPlan = "（未生成整改顺序建议，请参考各模块优先级自行安排处理顺序。）";
+    degraded = true;
   }
 
-  const modulesMarkdown =
-    modules.length === 0
-      ? "本次体检未发现需要重点关注的合规风险项。"
-      : mode === "fusion"
-        ? buildFusionModulesMarkdown(modules, moduleBodies)
-        : buildModulesMarkdown(modules);
+  let modulesMarkdown: string;
+  if (modules.length === 0) {
+    modulesMarkdown = "本次体检未发现需要重点关注的合规风险项。";
+  } else if (mode === "fusion") {
+    const built = buildFusionModulesMarkdown(modules, moduleBodies);
+    modulesMarkdown = built.markdown;
+    if (built.anyFallback) degraded = true;
+  } else {
+    modulesMarkdown = buildModulesMarkdown(modules);
+  }
 
   const reportText = [
     ...headerLines,
@@ -304,7 +341,7 @@ export async function generateCheckupReport(opts: {
     "",
     "### 免责声明",
     "",
-    DISCLAIMER_TEXT,
+    disclaimerText,
   ].join("\n");
 
   await prisma.quickExamReportJob.create({
@@ -317,5 +354,5 @@ export async function generateCheckupReport(opts: {
     },
   });
 
-  return { reportText, moduleCount: modules.length, usedAi: true };
+  return { reportText, moduleCount: modules.length, usedAi: true, degraded };
 }

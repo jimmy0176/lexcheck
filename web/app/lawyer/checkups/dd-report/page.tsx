@@ -1,15 +1,31 @@
 import path from "node:path";
 import { readFile } from "node:fs/promises";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { requireLawyerPage } from "@/lib/auth";
 import type { Answers, QuestionnaireConfig } from "@/lib/questionnaire-types";
 import { normalizeProgress } from "@/lib/checkup-workflow";
-import { WorkspaceSidePanel, WorkspaceSidePanelSection } from "@/components/workspace-side-panel";
+import { LawyerWorkbenchSidebar } from "@/components/lawyer-workbench-sidebar";
+import type { LawyerWorkbenchNavGroup } from "@/components/lawyer-workbench-nav";
+import { LEXCHECK_NAV_ITEMS } from "@/lib/lawyer-nav-config";
 import { LexcheckMiddleColumn } from "./LexcheckMiddleColumn";
 import { LexcheckWorkspaceRightPanel } from "./LexcheckWorkspaceRightPanel";
-import { ProjectProgressPanel } from "./ProjectProgressPanel";
-import { QuestionnairePickerButton, WorkspaceSettingsButtons } from "./WorkspaceControls";
+import { QuestionnairePickerButton } from "./WorkspaceControls";
+
+const ddReportNavGroups: LawyerWorkbenchNavGroup[] = [
+  {
+    key: "lexcheck",
+    label: "法律体检",
+    active: false,
+    children: LEXCHECK_NAV_ITEMS.map((item) => ({
+      key: item.view,
+      label: item.label,
+      active: false,
+      href: `/lawyer/checkups/lexcheck?view=${item.view}`,
+    })),
+  },
+  { key: "dd-report", label: "尽调报告", active: true, href: "/lawyer/checkups/dd-report", children: [] },
+  { key: "clients", label: "客户管理", active: false, href: "/lawyer/clients", children: [] },
+];
 
 type CheckupListItem = {
   id: string;
@@ -30,6 +46,7 @@ export default async function LawyerLexcheckPage({
 }: {
   searchParams?: Promise<{ token?: string }>;
 }) {
+  const lawyer = await requireLawyerPage();
   const resolved = searchParams ? await searchParams : undefined;
   const selectedToken = (resolved?.token ?? "").trim();
   let checkups: CheckupListItem[] = [];
@@ -159,87 +176,9 @@ export default async function LawyerLexcheckPage({
               </Card>
             )}
 
-            <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[251px_275px_minmax(0,1fr)]">
+            <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[333px_275px_minmax(0,1fr)]">
               <div className="min-h-0">
-                <WorkspaceSidePanel className="rounded-xl">
-                  <WorkspaceSidePanelSection>
-                    <Link
-                      href="/"
-                      className="font-heading text-2xl font-semibold leading-none tracking-[0.06em] text-white transition-opacity hover:opacity-80"
-                    >
-                      HE Partners
-                    </Link>
-                    <div className="mt-1 text-sm text-white/60">Lexcheck</div>
-                  </WorkspaceSidePanelSection>
-
-                  <WorkspaceSidePanelSection>
-                    <div className="text-xs text-white/50">Lexcheck 工作区</div>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <div className="truncate text-sm font-semibold text-white">
-                        {selected?.companyName?.trim() ? selected.companyName : "未选择问卷"}
-                      </div>
-                      <QuestionnairePickerButton
-                        checkups={checkupOptions}
-                        selectedToken={selected?.token}
-                        buttonLabel="选择问卷"
-                      />
-                    </div>
-                    <div className="mt-2 text-xs text-white/50">
-                      token: {selected?.token ?? "—"}
-                    </div>
-                    <div className="mt-2">
-                      {selected ? (
-                        <Badge variant={selected.status === "submitted" ? "default" : "secondary"}>
-                          {selected.status === "submitted" ? "已提交" : "草稿"}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-white/50">请先选择问卷</span>
-                      )}
-                    </div>
-                  </WorkspaceSidePanelSection>
-
-                  <WorkspaceSidePanelSection>
-                    <div className="text-sm font-semibold text-white">项目状态</div>
-                    <div className="mt-3 space-y-2 text-xs">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-white/50">补充材料</span>
-                        <span className="text-white/80">{selected ? `${attachmentStats?.total ?? 0} 份` : "—"}</span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-white/50">分部草稿</span>
-                        <span className="text-white/80">
-                          {selected?.workspace ? `${selected.workspace.sectionDrafts.length} 个` : "不可用"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-white/50">最终报告</span>
-                        <span className="text-white/80">{selected?.workspace?.finalReport ? "已生成" : "未生成"}</span>
-                      </div>
-                    </div>
-                    {selected?.workspace ? (
-                      <ProjectProgressPanel
-                        token={selected.token}
-                        initialProgress={normalizeProgress(selected.workspace.progressJson)}
-                      />
-                    ) : null}
-                  </WorkspaceSidePanelSection>
-
-                  {selected ? (
-                    <WorkspaceSidePanelSection>
-                      <div className="text-sm font-semibold text-white">配置中心</div>
-                      <p className="mt-1 text-xs text-white/50">
-                        模板与模型参数通过弹窗设置。
-                      </p>
-                      <div className="mt-3">
-                        <WorkspaceSettingsButtons
-                          token={selected.token}
-                          initialPromptTemplate={selected.workspace?.promptTemplate ?? ""}
-                          initialReportTemplate={selected.workspace?.reportTemplate ?? ""}
-                        />
-                      </div>
-                    </WorkspaceSidePanelSection>
-                  ) : null}
-                </WorkspaceSidePanel>
+                <LawyerWorkbenchSidebar groups={ddReportNavGroups} isAdmin={lawyer.isAdmin} className="rounded-xl" />
               </div>
 
               <div className="min-h-0 space-y-4 overflow-y-auto pr-1" id="file-management">
@@ -254,9 +193,22 @@ export default async function LawyerLexcheckPage({
                       })) ?? []
                     }
                     companyName={selected.companyName}
+                    status={selected.status}
+                    checkupOptions={checkupOptions}
+                    attachmentsTotal={attachmentStats?.total ?? 0}
+                    hasFinalReport={Boolean(selected.workspace?.finalReport)}
+                    progressInitial={normalizeProgress(selected.workspace?.progressJson)}
+                    workspaceAvailable={Boolean(selected.workspace)}
+                    initialPromptTemplate={selected.workspace?.promptTemplate ?? ""}
+                    initialReportTemplate={selected.workspace?.reportTemplate ?? ""}
                   />
                 ) : (
-                  <Card className="p-4 text-sm text-muted-foreground">请先选择问卷后上传文件。</Card>
+                  <Card className="p-4">
+                    <div className="flex items-center justify-between gap-2 text-sm text-muted-foreground">
+                      <span>请先选择问卷</span>
+                      <QuestionnairePickerButton checkups={checkupOptions} buttonLabel="选择问卷" />
+                    </div>
+                  </Card>
                 )}
               </div>
 

@@ -4,8 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { ChevronRight, Loader2, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { LawyerUploadPanel } from "../[token]/LawyerUploadPanel";
 import { downloadQuickExamDocx } from "./export-quick-exam-report";
+import { QuestionnairePickerButton, WorkspaceSettingsButtons } from "./WorkspaceControls";
+import { ProjectProgressPanel } from "./ProjectProgressPanel";
+import type { WorkflowProgressMap } from "@/lib/checkup-workflow";
 
 type SectionDraftSummary = {
   id: string;
@@ -19,14 +23,38 @@ type HistoryJob = {
   mode: string;
 };
 
+type CheckupOption = {
+  id: string;
+  token: string;
+  companyName: string | null;
+  status: "draft" | "submitted";
+  savedAtLabel: string;
+};
+
 export function LexcheckMiddleColumn({
   token,
   sectionDrafts,
   companyName,
+  status,
+  checkupOptions,
+  attachmentsTotal,
+  hasFinalReport,
+  progressInitial,
+  workspaceAvailable,
+  initialPromptTemplate,
+  initialReportTemplate,
 }: {
   token: string;
   sectionDrafts: SectionDraftSummary[];
   companyName: string | null;
+  status: "draft" | "submitted";
+  checkupOptions: CheckupOption[];
+  attachmentsTotal: number;
+  hasFinalReport: boolean;
+  progressInitial: WorkflowProgressMap;
+  workspaceAvailable: boolean;
+  initialPromptTemplate: string;
+  initialReportTemplate: string;
 }) {
   const [middleOpen, setMiddleOpen] = useState(false);
   const [history, setHistory] = useState<HistoryJob[]>([]);
@@ -106,12 +134,59 @@ export function LexcheckMiddleColumn({
 
   return (
     <div className="space-y-4">
+      <Card className="p-4">
+        <div className="text-sm font-semibold">工作区（暂不可用）</div>
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            {companyName?.trim() ? companyName : "未选择问卷"}
+          </div>
+          <QuestionnairePickerButton checkups={checkupOptions} selectedToken={token} buttonLabel="选择问卷" />
+        </div>
+        <div className="mt-2 text-xs text-muted-foreground">token: {token}</div>
+        <div className="mt-2">
+          <Badge variant={status === "submitted" ? "default" : "secondary"}>
+            {status === "submitted" ? "已提交" : "草稿"}
+          </Badge>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="text-sm font-semibold">项目状态</div>
+        <div className="mt-3 space-y-2 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">补充材料</span>
+            <span className="text-foreground">{attachmentsTotal} 份</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">分部草稿</span>
+            <span className="text-foreground">{workspaceAvailable ? `${sectionDrafts.length} 个` : "不可用"}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">最终报告</span>
+            <span className="text-foreground">{hasFinalReport ? "已生成" : "未生成"}</span>
+          </div>
+        </div>
+        {workspaceAvailable ? <ProjectProgressPanel token={token} initialProgress={progressInitial} /> : null}
+      </Card>
+
+      <Card className="p-4">
+        <div className="text-sm font-semibold">配置中心</div>
+        <p className="mt-1 text-xs text-muted-foreground">模板与模型参数通过弹窗设置。</p>
+        <div className="mt-3">
+          <WorkspaceSettingsButtons
+            token={token}
+            initialPromptTemplate={initialPromptTemplate}
+            initialReportTemplate={initialReportTemplate}
+          />
+        </div>
+      </Card>
+
       {/* 三方速查 — always visible */}
       <LawyerUploadPanel token={token} title="三方速查" attachmentKind="preliminary" />
 
-      {/* 快速体检报告历史 */}
+      {/* 体检报告历史 */}
       <Card className="p-4">
-        <div className="text-sm font-semibold">快速体检报告历史</div>
+        <div className="text-sm font-semibold">体检报告历史</div>
         <div className="mt-3 space-y-2 text-xs">
           {historyLoading ? (
             <div className="flex items-center gap-1.5 text-muted-foreground">

@@ -200,7 +200,7 @@ function quickExamPhaseLabel(phase: QuickExamRunStats["phase"]): string {
 }
 
 const TABS = [
-  { id: "overview", label: "快速体检" },
+  { id: "overview", label: "体检报告" },
   { id: "extract", label: "内容提取" },
   { id: "segments", label: "分段调整" },
   { id: "summary", label: "总结建议" },
@@ -835,7 +835,7 @@ useEffect(() => {
         });
       }
 
-      setMsg("快速体检报告已生成");
+      setMsg("体检报告已生成");
     } catch (e) {
       setErr(String(e));
     } finally {
@@ -970,7 +970,7 @@ useEffect(() => {
             <div className="overflow-hidden rounded-lg border border-border/80 bg-background/40">
               <div className="flex items-stretch gap-1 border-b border-border/50 bg-muted/15 px-2 py-1.5 sm:px-3">
                 <div className="flex min-w-0 flex-1 items-center py-1 text-left text-sm font-medium leading-tight text-foreground">
-                  <span className="min-w-0 truncate">快速体检报告</span>
+                  <span className="min-w-0 truncate">体检报告</span>
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5 border-l border-border/60 pl-1.5">
                   <Button
@@ -1481,7 +1481,7 @@ useEffect(() => {
         sectionTitle={
           settingsOpenKey
             ? settingsOpenKey === LEXCHECK_QUICK_EXAM_SECTION_KEY
-              ? "快速体检报告"
+              ? "体检报告"
               : (DD_REPORT_SECTIONS.find((s) => s.key === settingsOpenKey)?.name ?? settingsOpenKey)
             : ""
         }

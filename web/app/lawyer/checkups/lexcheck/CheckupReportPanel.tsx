@@ -1,49 +1,56 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  getDdSegmentDefaultTemplate,
-  CHECKUP_REPORT_SECTION_KEY,
-  CHECKUP_REPORT_TEMPLATE_VERSION,
+  CHECKUP_REPORT_CONCAT_SECTION_KEY,
+  CHECKUP_REPORT_FUSION_SECTION_KEY,
+  CHECKUP_REPORT_ADVANCED_SECTION_KEY,
+  CHECKUP_REPORT_THIRDPARTY_SECTION_KEY,
+  CHECKUP_REPORT_DISCLAIMER_SECTION_KEY,
+  CHECKUP_REPORT_PROMPT_DEFAULTS,
+  CHECKUP_REPORT_PROMPT_VERSION,
 } from "@/lib/dd-segment-default-templates";
 import { DEFAULT_PRIORITY_THRESHOLDS, PRIORITY_THRESHOLDS_STORAGE_KEY } from "@/lib/checkup-report-assemble";
 import type { Answers, QuestionnaireSection } from "@/lib/questionnaire-types";
 import { QuestionnaireCompactText } from "./QuestionnaireCompactText";
 import { CheckupReportHistoryPanel } from "./CheckupReportHistoryPanel";
-import { SegmentTemplateSettingsDialog } from "./SegmentTemplateSettingsDialog";
 import { downloadQuickExamDocx } from "./export-quick-exam-report";
 import { QuickExamReportMarkdown } from "./QuickExamReportMarkdown";
 import { ThirdPartyReportBox } from "./ThirdPartyReportBox";
-
-function segmentPromptStorageKey(token: string, sectionKey: string) {
-  return `lexcheck:dd-segment:${token}:${sectionKey}:prompt`;
-}
-
-function segmentOutputStorageKey(token: string, sectionKey: string) {
-  return `lexcheck:dd-segment:${token}:${sectionKey}:output`;
-}
 
 function checkupReportStorageKey(t: string) {
   return `lexcheck:checkup-report:text:v1:${t}`;
 }
 
-function ensureCheckupReportTemplateSeeded(token: string) {
-  if (typeof window === "undefined") return;
-  const sectionKey = CHECKUP_REPORT_SECTION_KEY;
-  const pk = segmentPromptStorageKey(token, sectionKey);
-  const ok = segmentOutputStorageKey(token, sectionKey);
-  const vk = `lexcheck:dd-segment:${token}:${sectionKey}:version`;
+function checkupPromptStorageKey(token: string, sectionKey: string) {
+  return `lexcheck:dd-segment:${token}:${sectionKey}:prompt`;
+}
+
+function checkupPromptVersionStorageKey(token: string, sectionKey: string) {
+  return `lexcheck:dd-segment:${token}:${sectionKey}:version`;
+}
+
+/** 读取律师在"AI配置"页面为该模式启用的效果文案；从未打开过该标签页时，用内置默认兜底并顺手写入本地存储。 */
+function readOrSeedCheckupPrompt(token: string, sectionKey: string): string {
+  if (typeof window === "undefined") return "";
+  const pk = checkupPromptStorageKey(token, sectionKey);
+  const vk = checkupPromptVersionStorageKey(token, sectionKey);
   const storedVersion = localStorage.getItem(vk) ?? "";
-  const alreadySeeded =
-    storedVersion === CHECKUP_REPORT_TEMPLATE_VERSION &&
-    (localStorage.getItem(pk) ?? "").trim() !== "";
-  if (alreadySeeded) return;
-  const d = getDdSegmentDefaultTemplate(sectionKey);
-  if (!d) return;
-  localStorage.setItem(pk, d.prompt);
-  localStorage.setItem(ok, d.outputFull);
-  localStorage.setItem(vk, CHECKUP_REPORT_TEMPLATE_VERSION);
+  const stored = localStorage.getItem(pk) ?? "";
+  if (storedVersion === CHECKUP_REPORT_PROMPT_VERSION && stored.trim()) return stored;
+  const fallback = CHECKUP_REPORT_PROMPT_DEFAULTS[sectionKey] ?? "";
+  localStorage.setItem(pk, fallback);
+  localStorage.setItem(vk, CHECKUP_REPORT_PROMPT_VERSION);
+  return fallback;
+}
+
+function reportModeSectionKey(mode: "concat" | "fusion" | "advanced"): string {
+  if (mode === "concat") return CHECKUP_REPORT_CONCAT_SECTION_KEY;
+  if (mode === "advanced") return CHECKUP_REPORT_ADVANCED_SECTION_KEY;
+  return CHECKUP_REPORT_FUSION_SECTION_KEY;
 }
 
 function readPriorityThresholds() {
@@ -103,12 +110,9 @@ export function CheckupReportPanel({
 }) {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [settingsOpenKey, setSettingsOpenKey] = useState<string | null>(null);
-  const [segDialogPrompt, setSegDialogPrompt] = useState("");
-  const [segDialogOutput, setSegDialogOutput] = useState("");
   const [activeTab, setActiveTab] = useState<"questionnaire" | "report" | "history">("report");
   const [qDetailMode, setQDetailMode] = useState<"risk-only" | "all">("risk-only");
-  const [reportMode, setReportMode] = useState<"concat" | "fusion">("fusion");
+  const [reportMode, setReportMode] = useState<"concat" | "fusion" | "advanced">("fusion");
   const [genBusy, setGenBusy] = useState(false);
   const [reportText, setReportText] = useState("");
   const [selectedHistoryJobId, setSelectedHistoryJobId] = useState<string | null>(null);
@@ -162,27 +166,10 @@ export function CheckupReportPanel({
   }, [token]);
 
   useEffect(() => {
-    const onEvt = (e: Event) => {
-      const ce = e as CustomEvent<{ token?: string }>;
-      if (ce.detail?.token !== token) return;
-      setSettingsOpenKey(CHECKUP_REPORT_SECTION_KEY);
-    };
-    window.addEventListener("lexcheck:open-report-settings", onEvt as EventListener);
-    return () => window.removeEventListener("lexcheck:open-report-settings", onEvt as EventListener);
-  }, [token]);
-
-  useEffect(() => {
     if (!genBusy || runDetail.endedAt != null) return;
     const id = window.setInterval(() => setTick((n) => n + 1), 250);
     return () => window.clearInterval(id);
   }, [genBusy, runDetail.endedAt]);
-
-  useEffect(() => {
-    if (!settingsOpenKey) return;
-    ensureCheckupReportTemplateSeeded(token);
-    setSegDialogPrompt(localStorage.getItem(segmentPromptStorageKey(token, settingsOpenKey)) ?? "");
-    setSegDialogOutput(localStorage.getItem(segmentOutputStorageKey(token, settingsOpenKey)) ?? "");
-  }, [settingsOpenKey, token]);
 
   async function generateReport() {
     setErr(null);
@@ -203,18 +190,17 @@ export function CheckupReportPanel({
       window.setTimeout(() => setGenStage("正在调用大模型生成开头概述与整改顺序建议…"), 1800),
     ];
     try {
-      ensureCheckupReportTemplateSeeded(token);
-      const prompt =
-        localStorage.getItem(segmentPromptStorageKey(token, CHECKUP_REPORT_SECTION_KEY)) ?? "";
-      const outputFull =
-        localStorage.getItem(segmentOutputStorageKey(token, CHECKUP_REPORT_SECTION_KEY)) ?? "";
+      const promptMd = readOrSeedCheckupPrompt(token, reportModeSectionKey(reportMode));
+      const thirdPartyPromptMd = readOrSeedCheckupPrompt(token, CHECKUP_REPORT_THIRDPARTY_SECTION_KEY);
+      const disclaimerText = readOrSeedCheckupPrompt(token, CHECKUP_REPORT_DISCLAIMER_SECTION_KEY);
 
       const res = await fetch(`/api/lawyer/checkups/${encodeURIComponent(token)}/checkup-report`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          promptMd: prompt,
-          outputMd: outputFull,
+          promptMd,
+          thirdPartyPromptMd,
+          disclaimerText,
           thresholds: readPriorityThresholds(),
           mode: reportMode,
         }),
@@ -224,6 +210,7 @@ export function CheckupReportPanel({
         reportText?: string;
         moduleCount?: number;
         usedAi?: boolean;
+        degraded?: boolean;
         message?: string;
         error?: string;
       };
@@ -244,7 +231,13 @@ export function CheckupReportPanel({
           new CustomEvent("lexcheck:quick-exam-history-updated", { detail: { token } })
         );
       }
-      setMsg(json.usedAi === false ? "体检报告已生成（未使用大模型，仅拼接预设文案）" : "体检报告已生成");
+      if (json.usedAi === false) {
+        setMsg("体检报告已生成（未使用大模型，仅拼接预设文案）");
+      } else if (json.degraded) {
+        setMsg("体检报告已生成（部分内容未完全生成，已用预设内容兜底，建议人工核对）");
+      } else {
+        setMsg("体检报告已生成");
+      }
       setGenStage(null);
     } catch (e) {
       setErr(String(e));
@@ -290,9 +283,18 @@ export function CheckupReportPanel({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-8 py-4">
         <div className="flex min-h-0 flex-1 flex-col gap-4">
           <div className="shrink-0 space-y-3">
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
-              {companyName?.trim() || "未填写公司名称"}
-            </h1>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/lawyer/checkups/lexcheck?view=report"
+                className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="返回选择问卷"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+              <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
+                {companyName?.trim() || "未填写公司名称"}
+              </h1>
+            </div>
             <div className="grid grid-cols-3 gap-x-8 gap-y-2">
               {[
                 { label: "联系人", value: contactName?.trim() || "未填写" },
@@ -437,11 +439,20 @@ export function CheckupReportPanel({
                     <select
                       value={reportMode}
                       disabled={genBusy}
-                      onChange={(e) => setReportMode(e.target.value === "concat" ? "concat" : "fusion")}
+                      onChange={(e) =>
+                        setReportMode(
+                          e.target.value === "concat"
+                            ? "concat"
+                            : e.target.value === "advanced"
+                              ? "advanced"
+                              : "fusion"
+                        )
+                      }
                       className="h-9 rounded-sm border border-border/60 bg-transparent px-2 text-sm text-muted-foreground"
                     >
                       <option value="fusion">融合模式</option>
                       <option value="concat">拼装模式</option>
+                      <option value="advanced">高级模式</option>
                     </select>
                     <Button
                       type="button"
@@ -475,28 +486,6 @@ export function CheckupReportPanel({
           </div>
         </div>
       </div>
-
-      <SegmentTemplateSettingsDialog
-        key={token}
-        open={settingsOpenKey !== null}
-        onOpenChange={(o) => {
-          if (!o) setSettingsOpenKey(null);
-        }}
-        token={token}
-        sectionKey={settingsOpenKey}
-        sectionTitle="体检报告"
-        prompt={segDialogPrompt}
-        output={segDialogOutput}
-        onPromptChange={setSegDialogPrompt}
-        onOutputChange={setSegDialogOutput}
-        onPersist={() => {
-          if (!settingsOpenKey) return;
-          localStorage.setItem(segmentPromptStorageKey(token, settingsOpenKey), segDialogPrompt);
-          localStorage.setItem(segmentOutputStorageKey(token, settingsOpenKey), segDialogOutput);
-          setSettingsOpenKey(null);
-        }}
-        variant="quickExam"
-      />
     </div>
   );
 }

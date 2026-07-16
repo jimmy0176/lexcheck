@@ -82,13 +82,14 @@ web/
 │   │   │   ├── LawyerUploadPanel.tsx    # 附件上传面板
 │   │   │   ├── RiskSectionSummaryPanel.tsx
 │   │   │   └── AnswerSectionsClient.tsx # 答案展示
-│   │   └── lexcheck/                    # 快速体检工作区
+│   │   └── lexcheck/                    # 法律体检工作区（总览/报告制作/问卷管理/AI配置）
 │   │       ├── page.tsx
+│   │       ├── CheckupReportPanel.tsx       # 报告制作（问卷详情/报告制作/历史报告三个子标签）
+│   │       ├── PromptConfigPanel.tsx        # AI配置页：拼装/融合/高级/三方报告提取/免责声明五个标签页
+│   │       ├── CheckupPromptEditor.tsx      # 单栏内容编辑器（内置默认只读 + 律师自建模版），被上者复用
 │   │       ├── QuickExamReportMarkdown.tsx  # 报告 Markdown 预览
-│   │       ├── WorkspaceControls.tsx
-│   │       ├── LexcheckWorkspaceRightPanel.tsx  # 右侧面板（含模板初始化逻辑）
 │   │       ├── export-quick-exam-report.ts      # 导出（Word/PDF）+ GFM 表格修复
-│   │       └── SegmentTemplateSettingsDialog.tsx # prompt/output 模板编辑弹窗
+│   │       └── ThirdPartyReportBox.tsx      # 三方报告上传与预览
 │   ├── login/
 │   │   ├── user/page.tsx
 │   │   └── lawyer/page.tsx
@@ -280,7 +281,13 @@ shouldUseSyncPipeline() 判断
 
 ---
 
-## 快速体检模板系统
+## 快速体检模板系统（尽调报告应用内的旧功能，UI 已更名为"体检报告"）
+
+> **命名澄清（重要）**：本节描述的是**尽调报告应用**（`/lawyer/checkups/dd-report`）工作区右侧面板里的一个标签页，
+> 代码内部标识仍是 `quickExam`/`LEXCHECK_QUICK_EXAM_SECTION_KEY`，但该标签页在 UI 上已统一改称"体检报告"，
+> 不再使用"快速体检"这个说法，以免与下面《体检报告提示词架构》一节描述的**法律体检应用**（`/lawyer/checkups/lexcheck`）
+> 的"报告制作"功能混淆——两者是完全独立的两套代码、两套数据，只是恰好显示名称相同。
+> 尽调报告应用目前非优先维护对象，这里只做了文案改名，管道/存储 key/版本机制均未改动。
 
 **存储位置：** localStorage，键名 `lexcheck:dd-segment:{token}:lexcheck_quick_exam_report:{prompt|output}`
 
@@ -307,6 +314,35 @@ shouldUseSyncPipeline() 判断
 - 每条建议：加粗标题另起一行 + 说明段落
 
 与 `FINAL_SYSTEM` 并列的还有用户在 UI 设置的 `prompt.md`（角色/约束）和 `output.md`（骨架），三者共同注入请求。
+
+---
+
+## 体检报告提示词架构（法律体检应用「报告制作」，主力维护对象）
+
+律师端「AI配置」页面（`app/lawyer/checkups/lexcheck/PromptConfigPanel.tsx`，页面标题/二级导航项均为"AI配置"）对应的是**这一套**——
+和上面《快速体检模板系统》一节描述的尽调报告应用旧功能是两套独立代码，不要混用两边的 section key。
+
+**五个标签页，各自独立配置：**
+
+| 标签 | Section Key | 对应生成模式 | 说明 |
+|------|-------------|-------------|------|
+| 拼装模式 | `CHECKUP_REPORT_CONCAT_SECTION_KEY` | `mode=concat` | AI 只写「报告摘要」+「重点整改顺序建议」，模块正文 100% 规则拼装 |
+| 融合模式 | `CHECKUP_REPORT_FUSION_SECTION_KEY` | `mode=fusion` | AI 额外整合润色每个模块的风险+建议正文（逐模块粒度兜底：某模块未返回时该模块单独退回规则拼装） |
+| 高级模式 | `CHECKUP_REPORT_ADVANCED_SECTION_KEY` | `mode=advanced` | AI 一次性生成「摘要 → 各模块 → 整改建议」整段 Markdown，模块顺序/分组/取舍均可由提示词控制；页头信息与免责声明仍由代码固定拼接 |
+| 三方报告提取 | `CHECKUP_REPORT_THIRDPARTY_SECTION_KEY` | 不属于上面三种模式，是一个独立的前置步骤 | 从上传的三方背景报告原文提炼 `companyInfo`/`highlights`，随报告开头一并插入，结果按附件缓存 |
+| 免责声明 | `CHECKUP_REPORT_DISCLAIMER_SECTION_KEY` | 不经过大模型 | 报告末尾固定文本，律师可完全自由改写，逐字插入报告，没有护栏 |
+
+**前四个标签页的系统提示词分两层，都在 `lib/dd-segment-default-templates.ts` 里定义：**
+- `CHECKUP_REPORT_GUARDRAILS[sectionKey]`：**护栏**，硬性约束（JSON 输出契约/键名、禁止编造、融合模式"风险与建议不能只留一半"等），代码固定拼接在 system 提示词最前面，页面上只读展示，律师不能编辑。免责声明没有对应护栏条目（不经过大模型），`CheckupPromptEditor` 的 `guardrail` 传空字符串时不渲染护栏区块。
+- `CHECKUP_REPORT_PROMPT_DEFAULTS[sectionKey]`：**效果文案的内置默认值**（五个标签都有，免责声明这一条就是文档正文本身），语气、结构、分段规则等与生成效果直接相关的部分，律师可在页面上整段改写、另存为自定义模版、选择"启用"生效。
+
+`lib/checkup-report-generate.ts` 里的 `buildSystemPrompt(sectionKey, effectiveText)` 负责把"护栏 + 律师保存的效果文案（为空则用内置默认）"拼成最终 system 消息；免责声明不走这个函数，是直接把律师保存的文本（为空则用内置默认）逐字拼进 `reportText`。
+
+**存储位置：** localStorage，键名同尽调报告那套，仍是 `lexcheck:dd-segment:{token}:{sectionKey}:prompt`（不再有 `:output` 这个键——五个标签页均已合并为单栏文本框），按 token 隔离；律师自建的模版库存 `lexcheck:checkup-report:saved-prompts:v1`（每条含 sectionKey，五个标签共用同一个库、按 sectionKey 过滤）。
+
+**版本机制：** `CHECKUP_REPORT_PROMPT_VERSION`（当前 `"v1"`）控制五个标签统一强制刷新；改了任意一个 `CHECKUP_REPORT_PROMPT_DEFAULTS` 的内置默认文案后，把这个常量改成下一个版本号即可让所有 token 的 localStorage 用新默认覆盖旧值。
+
+**局部失败提示：** `generateCheckupReport()` 返回值里的 `degraded` 字段——summary/actionPlan 落到占位文案、融合模式某模块退回规则拼装、或高级模式返回内容缺少「### 报告摘要」「### 重点整改顺序建议」等结构标志时会置为 `true`，前端 `CheckupReportPanel.tsx` 据此在生成成功但内容不完整时额外提示"部分内容未完全生成，已用预设内容兜底，建议人工核对"，与"未使用大模型"（`usedAi: false`）的整体失败提示区分开。
 
 ---
 
