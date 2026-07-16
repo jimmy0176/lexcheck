@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const checkups = await prisma.checkup.findMany({
     where: status ? { status: status as "draft" | "submitted" } : undefined,
     include: { template: { select: { name: true } } },
-    orderBy: { submittedAt: "desc" },
+    orderBy: status === "draft" ? { createdAt: "desc" } : { submittedAt: "desc" },
   });
 
   return NextResponse.json({

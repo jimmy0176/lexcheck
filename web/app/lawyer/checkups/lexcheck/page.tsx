@@ -59,7 +59,7 @@ export default async function LawyerLexcheckPage({
     try {
       const { prisma } = await import("@/lib/prisma");
       const all = await prisma.checkup.findMany({
-        orderBy: { updatedAt: "desc" },
+        orderBy: [{ submittedAt: { sort: "desc", nulls: "last" } }, { savedAt: "desc" }],
         include: {
           quickExamJobs: { where: { status: "success" }, select: { id: true }, take: 1 },
         },
@@ -134,7 +134,9 @@ export default async function LawyerLexcheckPage({
   if (view === "report" && !selected && !dbError) {
     try {
       const { prisma } = await import("@/lib/prisma");
-      const all = await prisma.checkup.findMany({ orderBy: { updatedAt: "desc" } });
+      const all = await prisma.checkup.findMany({
+        orderBy: [{ submittedAt: { sort: "desc", nulls: "last" } }, { savedAt: "desc" }],
+      });
       reportPickerRows = all.map((c) => ({
         token: c.token,
         companyName: c.companyName,

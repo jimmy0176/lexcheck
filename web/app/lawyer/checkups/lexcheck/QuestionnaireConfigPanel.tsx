@@ -33,7 +33,7 @@ type CollectedItem = {
 };
 
 export function QuestionnaireConfigPanel() {
-  const [activeTab, setActiveTab] = useState<"templates" | "assign" | "collected">("templates");
+  const [activeTab, setActiveTab] = useState<"templates" | "assign" | "uncollected" | "collected">("templates");
   const [templates, setTemplates] = useState<TemplateItem[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -62,6 +62,8 @@ export function QuestionnaireConfigPanel() {
 
   const [collected, setCollected] = useState<CollectedItem[] | null>(null);
   const [collectedErr, setCollectedErr] = useState<string | null>(null);
+  const [uncollected, setUncollected] = useState<CollectedItem[] | null>(null);
+  const [uncollectedErr, setUncollectedErr] = useState<string | null>(null);
   const [deletingToken, setDeletingToken] = useState<string | null>(null);
 
   async function loadTemplates() {
@@ -229,9 +231,24 @@ export function QuestionnaireConfigPanel() {
     }
   }
 
+  async function loadUncollected() {
+    setUncollectedErr(null);
+    try {
+      const res = await fetch("/api/lawyer/checkups?status=draft", { cache: "no-store" });
+      if (!res.ok) throw new Error(`加载失败 ${res.status}`);
+      const json = (await res.json()) as { checkups: CollectedItem[] };
+      setUncollected(json.checkups);
+    } catch (e) {
+      setUncollectedErr(String(e));
+    }
+  }
+
   useEffect(() => {
     if (activeTab === "collected" && collected === null) {
       void loadCollected();
+    }
+    if (activeTab === "uncollected" && uncollected === null) {
+      void loadUncollected();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
@@ -252,6 +269,27 @@ export function QuestionnaireConfigPanel() {
       await loadCollected();
     } catch (e) {
       setCollectedErr(String(e));
+    } finally {
+      setDeletingToken(null);
+    }
+  }
+
+  async function deleteUncollected(item: CollectedItem) {
+    if (
+      !window.confirm(
+        `确认删除「${item.companyName || item.contactName || item.token}」的未收集问卷（草稿）？此操作不可撤销。`
+      )
+    )
+      return;
+    setDeletingToken(item.token);
+    setUncollectedErr(null);
+    try {
+      const res = await fetch(`/api/lawyer/checkups/${item.token}`, { method: "DELETE" });
+      const json = (await res.json()) as { ok?: boolean; message?: string; error?: string };
+      if (!res.ok) throw new Error(json.message ?? json.error ?? `删除失败 ${res.status}`);
+      await loadUncollected();
+    } catch (e) {
+      setUncollectedErr(String(e));
     } finally {
       setDeletingToken(null);
     }
@@ -283,7 +321,18 @@ export function QuestionnaireConfigPanel() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            问卷发放
+            推送设置
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("uncollected")}
+            className={`-mb-px shrink-0 border-b-2 px-1 py-2 text-base font-medium transition-colors ${
+              activeTab === "uncollected"
+                ? "border-primary text-foreground"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            未收集
           </button>
           <button
             type="button"
@@ -294,7 +343,7 @@ export function QuestionnaireConfigPanel() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            已收集问卷
+            已收集
           </button>
         </div>
 
@@ -522,7 +571,7 @@ export function QuestionnaireConfigPanel() {
         ) : activeTab === "assign" ? (
         <>
         <section className="space-y-3 rounded-md border p-4">
-          <h2 className="text-sm font-medium">问卷发放（{templates?.length ?? 0}）</h2>
+          <h2 className="text-sm font-medium">推送设置（{templates?.length ?? 0}）</h2>
           {!templates ? (
             <div className="text-sm text-muted-foreground">加载中…</div>
           ) : (
@@ -616,6 +665,58 @@ export function QuestionnaireConfigPanel() {
           </section>
         ) : null}
         </>
+        ) : activeTab === "uncollected" ? (
+        <>
+        {uncollectedErr ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {uncollectedErr}
+          </div>
+        ) : null}
+        <section className="space-y-3 rounded-md border p-4">
+          <h2 className="text-sm font-medium">未收集（{uncollected?.length ?? 0}）</h2>
+          {!uncollected ? (
+            <div className="text-sm text-muted-foreground">加载中…</div>
+          ) : uncollected.length === 0 ? (
+            <div className="text-sm text-muted-foreground">暂无未提交的问卷草稿。</div>
+          ) : (
+            <div className="overflow-x-auto rounded-sm border">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b bg-muted/30 text-xs text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">公司名称</th>
+                    <th className="px-3 py-2 font-medium">联系人</th>
+                    <th className="px-3 py-2 font-medium">联系电话</th>
+                    <th className="px-3 py-2 font-medium">使用问卷</th>
+                    <th className="px-3 py-2 font-medium">状态</th>
+                    <th className="px-3 py-2 font-medium">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {uncollected.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="px-3 py-2">{item.companyName || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.contactName || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.contactPhone || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{item.templateName || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground">未提交</td>
+                      <td className="px-3 py-2">
+                        <button
+                          type="button"
+                          className="text-destructive underline underline-offset-2 disabled:opacity-50"
+                          disabled={deletingToken === item.token}
+                          onClick={() => void deleteUncollected(item)}
+                        >
+                          {deletingToken === item.token ? "删除中…" : "删除"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+        </>
         ) : (
         <>
         {collectedErr ? (
@@ -624,7 +725,7 @@ export function QuestionnaireConfigPanel() {
           </div>
         ) : null}
         <section className="space-y-3 rounded-md border p-4">
-          <h2 className="text-sm font-medium">已收集问卷（{collected?.length ?? 0}）</h2>
+          <h2 className="text-sm font-medium">已收集（{collected?.length ?? 0}）</h2>
           {!collected ? (
             <div className="text-sm text-muted-foreground">加载中…</div>
           ) : collected.length === 0 ? (

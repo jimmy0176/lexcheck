@@ -1,14 +1,62 @@
 "use client";
 
 import { useState } from "react";
+import { Shield, Users, FileSpreadsheet, PenLine, Sparkles, FileDown } from "lucide-react";
 import { getAppVersion } from "@/lib/app-version";
 
 const TABS = [
+  { key: "tour", label: "快速导览" },
   { key: "guide", label: "使用说明" },
   { key: "changelog", label: "更新记录" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
+
+type TourStep = {
+  icon: typeof Shield;
+  title: string;
+  where: string;
+  caption: string;
+};
+
+const TOUR_STEPS: TourStep[] = [
+  {
+    icon: Shield,
+    title: "创建律师账号",
+    where: "后台管理 → 账号管理",
+    caption: "管理员在这里新增律师账号（仅管理员可见）。",
+  },
+  {
+    icon: Users,
+    title: "创建客户账号",
+    where: "客户管理",
+    caption: "律师在这里新建企业客户账号，用于发放问卷。",
+  },
+  {
+    icon: FileSpreadsheet,
+    title: "配置并发放问卷",
+    where: "问卷管理",
+    caption: "选择/导入问卷模板，设置广播或指定客户推送。",
+  },
+  {
+    icon: PenLine,
+    title: "客户在线填写",
+    where: "（客户端）",
+    caption: "客户登录后填写并提交问卷，提交后进入待处理列表。",
+  },
+  {
+    icon: Sparkles,
+    title: "选择模式生成报告",
+    where: "报告制作",
+    caption: "选中已提交问卷，选择「拼装 / 融合 / 高级」模式一键生成。效果不满意可去「AI配置」调整提示词。",
+  },
+  {
+    icon: FileDown,
+    title: "导出与回溯",
+    where: "报告制作 → 历史报告",
+    caption: "生成后可导出 Word，历史版本随时可查看。",
+  },
+];
 
 type GuideItem = { title: string; body: string };
 
@@ -124,7 +172,7 @@ const CHANGELOG: ChangelogEntry[] = [
 ];
 
 export function HelpCenterPanel() {
-  const [activeTab, setActiveTab] = useState<TabKey>("guide");
+  const [activeTab, setActiveTab] = useState<TabKey>("tour");
 
   return (
     <div className="flex h-full flex-col overflow-hidden px-8 py-4">
@@ -148,7 +196,34 @@ export function HelpCenterPanel() {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeTab === "guide" ? (
+        {activeTab === "tour" ? (
+          <div className="max-w-2xl pb-4">
+            <p className="mb-5 text-sm text-muted-foreground">初次使用？按下面的顺序走一遍即可。</p>
+            <ol className="space-y-0">
+              {TOUR_STEPS.map((step, i) => {
+                const Icon = step.icon;
+                const isLast = i === TOUR_STEPS.length - 1;
+                return (
+                  <li key={step.title} className="flex gap-4">
+                    <div className="flex shrink-0 flex-col items-center">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-primary bg-background text-primary">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      {!isLast ? <div className="my-1 w-px flex-1 bg-border" /> : null}
+                    </div>
+                    <div className={isLast ? "pb-1" : "pb-6"}>
+                      <div className="flex items-baseline gap-2 pt-1.5">
+                        <span className="text-sm font-semibold text-foreground">{step.title}</span>
+                        <span className="text-xs text-primary">{step.where}</span>
+                      </div>
+                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{step.caption}</p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        ) : activeTab === "guide" ? (
           <div className="max-w-3xl space-y-6 pb-4">
             {GUIDE_SECTIONS.map((section) => (
               <div key={section.heading} className="space-y-3">
