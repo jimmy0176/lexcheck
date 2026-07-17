@@ -10,8 +10,11 @@ export default async function QuestionnairePage({
   const { token } = await params;
 
   const user = await getSessionUser();
-  if (!user || user.role !== "client") {
+  if (!user) {
     redirect(`/?next=${encodeURIComponent(`/q/${token}`)}`);
+  }
+  if (user.role !== "client") {
+    redirect("/lawyer/checkups/lexcheck");
   }
 
   const { prisma } = await import("@/lib/prisma");

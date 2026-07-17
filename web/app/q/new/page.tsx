@@ -10,11 +10,14 @@ export default async function NewQuestionnairePage({
 }) {
   const params = await searchParams;
   const user = await getSessionUser();
-  if (!user || user.role !== "client") {
+  if (!user) {
     const returnTo = params?.templateId
       ? `/q/new?templateId=${encodeURIComponent(params.templateId)}`
       : "/q/new";
     redirect(`/?next=${encodeURIComponent(returnTo)}`);
+  }
+  if (user.role !== "client") {
+    redirect("/lawyer/checkups/lexcheck");
   }
 
   const templateId = params?.templateId?.trim();

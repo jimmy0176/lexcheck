@@ -6,8 +6,13 @@ import { ensureDefaultQuestionnaireTemplate } from "@/lib/questionnaire-template
 
 export default async function QuestionnaireEntryPage() {
   const user = await getSessionUser();
-  if (!user || user.role !== "client") {
+  if (!user) {
     redirect("/?next=%2Fq");
+  }
+  if (user.role !== "client") {
+    // 已登录但不是客户账号（例如律师账号误入这个客户专用地址）：直接送回该角色自己的主页，
+    // 不能再走 /?next=... 那一套，否则会跟首页"已登录则按 next 跳转"的逻辑来回反弹。
+    redirect("/lawyer/checkups/lexcheck");
   }
 
   let templates: Array<{

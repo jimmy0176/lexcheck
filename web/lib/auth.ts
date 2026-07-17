@@ -120,10 +120,10 @@ export async function getSessionUser(): Promise<User | null> {
   return session.user;
 }
 
-/** 供 Server Component 页面使用：未登录或非律师角色时跳转到律师登录页。 */
+/** 供 Server Component 页面使用：未登录或非律师角色时跳转到首页登录；已登录但角色不对时首页会按角色送回其自己的主页，不会死循环。 */
 export async function requireLawyerPage(): Promise<User> {
   const user = await getSessionUser();
-  if (!user || user.role !== "lawyer") redirect("/login");
+  if (!user || user.role !== "lawyer") redirect("/");
   return user;
 }
 

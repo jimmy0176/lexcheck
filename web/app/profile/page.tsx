@@ -4,7 +4,7 @@ import { ProfileForm } from "./ProfileForm";
 
 export default async function ProfilePage() {
   const user = await getSessionUser();
-  if (!user) redirect("/login");
+  if (!user) redirect("/?next=%2Fprofile");
 
   return (
     <main className="min-h-dvh bg-background">

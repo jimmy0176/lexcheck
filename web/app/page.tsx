@@ -45,6 +45,17 @@ function safeNextPath(raw: string | undefined): string | null {
   return raw;
 }
 
+/**
+ * next 必须和当前登录角色匹配才采用，否则忽略、退回角色默认落地页。
+ * 避免律师账号带着客户专用的 next（如 /q）登录时被送进一个自己无权访问的页面，
+ * 那边的鉴权又会把他们送回这里、重新套用同一个 next——形成死循环。
+ */
+function nextPathForRole(nextPath: string | null, role: string): string | null {
+  if (!nextPath) return null;
+  const isLawyerPath = nextPath.startsWith("/lawyer");
+  return role === "lawyer" ? (isLawyerPath ? nextPath : null) : isLawyerPath ? null : nextPath;
+}
+
 export default async function Home({
   searchParams,
 }: {
@@ -53,7 +64,7 @@ export default async function Home({
   const nextPath = safeNextPath((await searchParams)?.next);
   const user = await getSessionUser();
   if (user) {
-    redirect(nextPath ?? (user.role === "lawyer" ? "/lawyer/checkups/lexcheck" : "/q"));
+    redirect(nextPathForRole(nextPath, user.role) ?? (user.role === "lawyer" ? "/lawyer/checkups/lexcheck" : "/q"));
   }
 
   return (
