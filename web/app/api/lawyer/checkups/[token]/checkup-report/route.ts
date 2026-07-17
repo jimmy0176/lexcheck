@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireLawyerApi } from "@/lib/auth";
 import { generateCheckupReport, type ReportGenerationMode } from "@/lib/checkup-report-generate";
 import { DEFAULT_PRIORITY_THRESHOLDS, type PriorityThresholds } from "@/lib/checkup-report-assemble";
+import type { LlmProfileSource } from "@/lib/llm-resolve";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -30,6 +31,7 @@ export async function POST(
       disclaimerText?: string;
       thresholds?: unknown;
       mode?: string;
+      llmSource?: string;
     };
     const promptMd = (body.promptMd ?? "").trim();
     const thirdPartyPromptMd = (body.thirdPartyPromptMd ?? "").trim();
@@ -37,6 +39,10 @@ export async function POST(
     const thresholds = normalizeThresholds(body.thresholds);
     const mode: ReportGenerationMode =
       body.mode === "concat" ? "concat" : body.mode === "advanced" ? "advanced" : "fusion";
+    const llmSource: LlmProfileSource | undefined =
+      body.llmSource === "own" || body.llmSource === "shared" || body.llmSource === "backup"
+        ? body.llmSource
+        : undefined;
 
     const { prisma } = await import("@/lib/prisma");
     const { reportText, moduleCount, usedAi, degraded } = await generateCheckupReport({
@@ -48,6 +54,7 @@ export async function POST(
       disclaimerText,
       mode,
       thresholds,
+      llmSource,
     });
 
     return NextResponse.json({ ok: true, reportText, moduleCount, usedAi, degraded });

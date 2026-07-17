@@ -94,6 +94,7 @@ export function LoginForm({
   const [registerCode, setRegisterCode] = useState("");
   const [name, setName] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
   const [inviteCode, setInviteCode] = useState("");
   const [requireInviteCode, setRequireInviteCode] = useState(false);
 
@@ -248,6 +249,10 @@ export function LoginForm({
       setErr("请填写公司名称");
       return;
     }
+    if (registerPassword && registerPassword.length < 6) {
+      setErr("密码至少 6 位，留空则不设置密码（可稍后在个人资料里补设）");
+      return;
+    }
     setErr(null);
     setNotice(null);
     setBusy(true);
@@ -262,6 +267,7 @@ export function LoginForm({
           name,
           companyName,
           phone: registerPhone,
+          password: registerPassword,
           inviteCode,
         }),
       });
@@ -426,6 +432,17 @@ export function LoginForm({
               value={registerPhone}
               onChange={(e) => setRegisterPhone(e.target.value)}
               inputMode="numeric"
+              className={plainInputCls}
+            />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm text-muted-foreground">设置密码（选填，留空则只能用验证码登录，可稍后在个人资料里补设）</span>
+            <input
+              value={registerPassword}
+              onChange={(e) => setRegisterPassword(e.target.value)}
+              type="password"
+              autoComplete="new-password"
+              placeholder="至少 6 位"
               className={plainInputCls}
             />
           </label>

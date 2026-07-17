@@ -159,7 +159,7 @@ export async function PATCH(
       try {
         const source = await extractAttachmentText(att.storagePath);
         extractedText = await runAiExtraction({
-          sourceText: source,
+          sourceText: source.text,
           fileName: att.fileName,
           extractionRule: (body.extractionRule ?? "").trim(),
           providerId: (body.providerId ?? "").trim(),
@@ -172,7 +172,7 @@ export async function PATCH(
       }
     } else {
       try {
-        extractedText = await extractAttachmentText(att.storagePath);
+        extractedText = (await extractAttachmentText(att.storagePath)).text;
       } catch (e) {
         extractError = String(e);
       }

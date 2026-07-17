@@ -28,8 +28,15 @@ function toProfile(
   return { source, providerId: pid, model: m, apiKey: key, base };
 }
 
-/** 按优先级返回可用档案：律师本人 -> 管理员共用 -> 管理员共用备用。未配置完整的档案会被跳过。 */
-export async function resolveLlmProfiles(lawyerId: string): Promise<LlmProfile[]> {
+/**
+ * 按优先级返回可用档案：律师本人 -> 管理员共用 -> 管理员共用备用。未配置完整的档案会被跳过。
+ * 传入 preferredSource 时改为只返回那一个来源（律师在生成报告时显式选择了具体模型，不走自动级联）；
+ * 该来源未配置完整时返回空数组，由调用方按"无可用档案"处理，不会静默退回级联顺序。
+ */
+export async function resolveLlmProfiles(
+  lawyerId: string,
+  preferredSource?: LlmProfileSource
+): Promise<LlmProfile[]> {
   const { prisma } = await import("@/lib/prisma");
   const [user, settings] = await Promise.all([
     prisma.user.findUnique({ where: { id: lawyerId } }),
@@ -60,6 +67,8 @@ export async function resolveLlmProfiles(lawyerId: string): Promise<LlmProfile[]
       settings.backupLlmBaseUrl
     );
   if (backup) profiles.push(backup);
+
+  if (preferredSource) return profiles.filter((p) => p.source === preferredSource);
   return profiles;
 }
 

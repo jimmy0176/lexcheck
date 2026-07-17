@@ -61,7 +61,7 @@ function readPersisted(token: string, sectionKey: string): string {
 type ListRow = { id: string; title: string; text: string };
 
 /**
- * "AI配置"页单栏内容编辑器：内置默认（只读）+ 律师自建模版（可编辑）。
+ * "AI配置"页单栏内容编辑器：默认版（只读）+ 律师自建模版（可编辑）。
  * `guardrail` 非空时在编辑区上方固定展示不可修改的护栏文本（无护栏的场景，如免责声明，传空字符串即可不显示）。
  * 调用方需以 `key={token}` 渲染，切换问卷时整体重挂载以重新读取该 token 下的已启用内容。
  */
@@ -103,7 +103,7 @@ export function CheckupPromptEditor({
   const persisted = useMemo(() => readPersisted(token, sectionKey), [token, sectionKey]);
 
   const allRows = useMemo((): ListRow[] => {
-    const rows: ListRow[] = [{ id: "builtin:default", title: "内置默认", text: defaultText.trim() }];
+    const rows: ListRow[] = [{ id: "builtin:default", title: "默认版", text: defaultText.trim() }];
     for (const s of savedList) {
       if (s.sectionKey !== sectionKey) continue;
       rows.push({ id: `custom:${s.id}`, title: s.name, text: s.text });
@@ -130,7 +130,7 @@ export function CheckupPromptEditor({
 
   const isBuiltinSelected = effectivePick === "builtin:default";
   const isCustomSelected = Boolean(effectivePick?.startsWith("custom:"));
-  const nameValue = isCustomSelected ? (nameDraft ?? customRow?.name ?? "") : "内置默认";
+  const nameValue = isCustomSelected ? (nameDraft ?? customRow?.name ?? "") : "默认版";
 
   function handleSelectRow(row: ListRow) {
     setPickedId(row.id);
@@ -247,14 +247,7 @@ export function CheckupPromptEditor({
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 sm:px-5">
-            {guardrail ? (
-              <div className="rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
-                <span className="font-medium text-foreground">系统固定要求（不可修改）：</span>
-                <div className="mt-1 whitespace-pre-wrap">{guardrail}</div>
-              </div>
-            ) : null}
-
-            <label className={cn("space-y-1", guardrail && "mt-3")}>
+            <label className="space-y-1">
               <span className="text-xs text-muted-foreground">模版名称</span>
               <input
                 value={nameValue}
@@ -270,6 +263,13 @@ export function CheckupPromptEditor({
                 )}
               />
             </label>
+
+            {guardrail ? (
+              <div className="mt-3 rounded-md border border-border/80 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                <span className="font-medium text-foreground">系统固定要求（不可修改）：</span>
+                <div className="mt-1 whitespace-pre-wrap">{guardrail}</div>
+              </div>
+            ) : null}
 
             <label className="mt-3 flex min-h-0 flex-1 flex-col gap-1.5">
               <span className="text-xs font-medium text-muted-foreground">

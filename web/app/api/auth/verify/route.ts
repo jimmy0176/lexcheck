@@ -3,6 +3,7 @@ import {
   consumeEmailVerificationCode,
   createSession,
   getAuthSettings,
+  hashPassword,
   isValidEmail,
   isValidPhone,
   setSessionCookie,
@@ -80,6 +81,7 @@ export async function POST(req: Request) {
       let name = "";
       let companyName = "";
       let phone = "";
+      let passwordHash: string | null = null;
       if (!existing) {
         // 新邮箱走注册：先把姓名/公司/手机号/邀请码这些必填项校验完，确认这次请求确实能成功创建账号，
         // 最后才消费验证码——避免"码没错、但表单某项没填对"这种注定失败的请求，把一次性验证码提前烧掉，
@@ -105,6 +107,13 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "conflict", message: "该手机号已被其他账号使用" }, { status: 409 });
           }
         }
+        const password = (body.password ?? "").trim();
+        if (password) {
+          if (password.length < 6) {
+            return NextResponse.json({ error: "bad_request", message: "密码至少 6 位" }, { status: 400 });
+          }
+          passwordHash = hashPassword(password);
+        }
       }
 
       const validCode = await consumeEmailVerificationCode(email, code);
@@ -117,7 +126,7 @@ export async function POST(req: Request) {
         userId = existing.id;
       } else {
         const created = await prisma.user.create({
-          data: { email, phone: phone || null, role: "client", name, companyName },
+          data: { email, phone: phone || null, role: "client", name, companyName, passwordHash },
         });
         userId = created.id;
       }

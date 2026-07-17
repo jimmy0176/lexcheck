@@ -14,7 +14,7 @@ export async function loadPreliminaryAttachmentBodies(
   for (const att of attachments) {
     try {
       const body = await extractAttachmentText(att.storagePath);
-      out.push({ fileName: att.fileName, text: body });
+      out.push({ fileName: att.fileName, text: body.text });
     } catch {
       out.push({ fileName: att.fileName, text: `（无法解析该文件文本：${att.fileName}）` });
     }

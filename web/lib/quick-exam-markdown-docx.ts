@@ -100,6 +100,7 @@ function mdHeadingToDocx(h: Heading): DocxParagraph {
   const hl = HEADING_LEVELS[level] ?? HeadingLevel.HEADING_6;
   return new DocxParagraph({
     heading: hl,
+    alignment: h.depth === 1 ? AlignmentType.CENTER : undefined,
     children: phrasingToRuns(h.children as PhrasingContent[]),
   });
 }
@@ -178,27 +179,14 @@ function gfmAlignToDocx(a: GfmAlign): (typeof AlignmentType)[keyof typeof Alignm
 }
 
 function tableCellToDocx(cell: MdTableCell, isHeader: boolean, align: GfmAlign): TableCell {
-  const paragraphs: DocxParagraph[] = [];
-  for (const c of cell.children as unknown as readonly Content[]) {
-    if (c.type === "paragraph") {
-      paragraphs.push(
-        new DocxParagraph({
-          alignment: gfmAlignToDocx(align),
-          children: phrasingToRuns((c as MdParagraph).children as PhrasingContent[], isHeader),
-        })
-      );
-    }
-  }
-  if (paragraphs.length === 0) {
-    paragraphs.push(
-      new DocxParagraph({
-        alignment: gfmAlignToDocx(align),
-        children: [new TextRun({ text: " ", bold: isHeader })],
-      })
-    );
-  }
+  // GFM 表格单元格的 children 直接是 PhrasingContent[]（text/strong/...），不会包一层 paragraph 节点，
+  // 之前误按 blockContent 处理导致永远匹配不到 "paragraph" 类型，单元格全部落入下面的空白兜底分支。
+  const paragraph = new DocxParagraph({
+    alignment: gfmAlignToDocx(align),
+    children: phrasingToRuns(cell.children as unknown as readonly PhrasingContent[], isHeader),
+  });
   return new TableCell({
-    children: paragraphs,
+    children: [paragraph],
     shading: isHeader ? { type: ShadingType.SOLID, color: "D9D9D9", fill: "D9D9D9" } : undefined,
     margins: { top: 80, bottom: 80, left: 120, right: 120 },
   });
@@ -209,6 +197,7 @@ function mdTableToDocx(table: MdTable): { table: DocxTable; rowCount: number } {
 
   if (table.children.length === 0) {
     const row = new TableRow({
+      cantSplit: true,
       children: [
         new TableCell({
           children: [new DocxParagraph({ children: [new TextRun({ text: " " })] })],
@@ -228,6 +217,7 @@ function mdTableToDocx(table: MdTable): { table: DocxTable; rowCount: number } {
   const fixedRows = table.children.map((row, rowIdx) =>
     new TableRow({
       tableHeader: rowIdx === 0,
+      cantSplit: true,
       children: row.children.map((cell, colIdx) =>
         tableCellToDocx(cell as MdTableCell, rowIdx === 0, aligns[colIdx] ?? null)
       ),

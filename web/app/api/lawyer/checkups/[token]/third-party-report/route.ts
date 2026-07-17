@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireLawyerApi } from "@/lib/auth";
 import { saveUploadFile, validateUploadFile } from "@/lib/checkup-attachments";
 import { extractAttachmentText } from "@/lib/extract-attachment-text";
+import { ADVANCED_THIRDPARTY_DETAIL_TRIGGER_CHARS, getThirdPartyDetailedExtract } from "@/lib/checkup-report-generate";
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,11 @@ async function findThirdPartyAttachment(prisma: import("@prisma/client").PrismaC
     where: { checkupId, kind: "thirdParty" },
     orderBy: { createdAt: "desc" },
   });
+}
+
+function hasDetailedExtract(parsedSummaryJson: unknown): boolean {
+  const cached = parsedSummaryJson as { detailedExtract?: string } | null;
+  return Boolean(cached?.detailedExtract?.trim());
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ token: string }> }) {
@@ -34,6 +40,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ token: 
           createdAt: attachment.createdAt,
           hasExtractedText: Boolean(attachment.extractedText?.trim()),
           extractError: attachment.extractError,
+          extractedTextTruncated: attachment.extractedTextTruncated,
+          extractedTextOriginalLength: attachment.extractedTextOriginalLength,
+          willUseDetailedExtract: (attachment.extractedText?.trim().length ?? 0) > ADVANCED_THIRDPARTY_DETAIL_TRIGGER_CHARS,
+          hasDetailedExtract: hasDetailedExtract(attachment.parsedSummaryJson),
         }
       : null,
     enabled: checkup.workspace?.thirdPartyReportEnabled ?? false,
@@ -75,8 +85,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
     let extractedText: string | null = null;
     let extractError: string | null = null;
+    let extractedTextTruncated = false;
+    let extractedTextOriginalLength: number | null = null;
     try {
-      extractedText = await extractAttachmentText(storagePath);
+      const result = await extractAttachmentText(storagePath);
+      extractedText = result.text;
+      extractedTextTruncated = result.truncated;
+      extractedTextOriginalLength = result.originalLength;
     } catch (e) {
       extractError = String(e instanceof Error ? e.message : e);
     }
@@ -92,6 +107,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
         storagePath,
         extractedText,
         extractError,
+        extractedTextTruncated,
+        extractedTextOriginalLength,
         parsedSummaryJson: undefined,
       },
     });
@@ -102,6 +119,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
       update: { thirdPartyReportEnabled: true },
     });
 
+    // 原文超过高级模式的详细摘要触发门槛时，上传阶段就预处理一次，避免留到生成报告时才等这个调用；
+    // 这里是尽力而为，失败也不影响本次上传结果——生成报告时 getThirdPartyContentForAdvanced() 还会按需重试。
+    let detailedExtractReady = false;
+    if ((extractedText?.trim().length ?? 0) > ADVANCED_THIRDPARTY_DETAIL_TRIGGER_CHARS) {
+      try {
+        const detailed = await getThirdPartyDetailedExtract(prisma, created, lawyer.id);
+        detailedExtractReady = Boolean(detailed);
+      } catch {
+        // 预处理失败不阻塞上传，交给报告生成时的按需重试
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       attachment: {
@@ -111,6 +140,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
         createdAt: created.createdAt,
         hasExtractedText: Boolean(created.extractedText?.trim()),
         extractError: created.extractError,
+        extractedTextTruncated: created.extractedTextTruncated,
+        extractedTextOriginalLength: created.extractedTextOriginalLength,
+        willUseDetailedExtract: (extractedText?.trim().length ?? 0) > ADVANCED_THIRDPARTY_DETAIL_TRIGGER_CHARS,
+        hasDetailedExtract: detailedExtractReady,
       },
       enabled: true,
     });

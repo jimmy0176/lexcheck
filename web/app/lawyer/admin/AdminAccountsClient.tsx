@@ -378,17 +378,19 @@ export function AdminAccountsClient({
             checked={settings.tempCodeEnabled}
             onCheckedChange={(v) => setSettings((s) => ({ ...s, tempCodeEnabled: v === true }))}
           />
-          <span className="text-sm">启用临时验证码登录</span>
+          <span className="text-sm">启用临时验证码登录（仅影响手机号登录/注册，与邮箱验证码互不影响）</span>
         </label>
 
         {settings.tempCodeEnabled ? (
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-100">
             已开启临时验证码登录：任何手机号输入下方这个验证码都可以登录/注册（包括登录管理员账号）。
             短信服务商接入前必须保持开启系统才可用，但正式对外上线前请务必确认这不是长期方案，并妥善保管此验证码。
+            邮箱登录不受此项影响，邮箱验证码始终是系统随机生成、一次性有效的正式验证码，不会等于这里填的临时验证码。
           </div>
         ) : (
           <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            已关闭临时验证码登录，且短信服务商尚未接入——当前没有任何账号能够登录。仅在已接入真实短信验证码后关闭此项。
+            已关闭临时验证码登录，且短信服务商尚未接入——手机号将无法登录/注册（仅在已接入真实短信验证码后关闭此项）。
+            已设置邮箱（含系统管理员本人）的账号不受影响，仍可正常用邮箱验证码或邮箱密码登录。
           </div>
         )}
 
@@ -409,7 +411,7 @@ export function AdminAccountsClient({
             className={inputCls}
           >
             <option value="invite_only">邀请码模式（需邀请码才能注册）</option>
-            <option value="open">开放注册（手机号+验证码即可注册）</option>
+            <option value="open">开放注册（邮箱或手机号+验证码即可注册）</option>
           </select>
         </label>
 
@@ -571,6 +573,11 @@ export function AdminAccountsClient({
           <p className="mt-1 text-xs text-muted-foreground">
             生成报告时按顺序尝试：律师本人在工作台设置的 Key → 下方&ldquo;共用 Key&rdquo; → 下方&ldquo;共用备用 Key&rdquo;。
             三个都不可用或调用失败时，退化为不调用大模型的纯拼接版报告。
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            大部分律师实际都在用这里配置的共用 Key，体检报告「高级模式」会把问卷全量数据和三方报告一起提交，
+            建议选择上下文窗口较大的旗舰/长文本档位模型（如 qwen-max/qwen-plus、deepseek-v4-pro、glm-5.2、
+            moonshot-v1-128k 等），三方报告较长时更不容易超出模型上下文限制。
           </p>
         </div>
 

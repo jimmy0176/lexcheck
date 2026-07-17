@@ -17,12 +17,104 @@ import { DEFAULT_PRIORITY_THRESHOLDS, PRIORITY_THRESHOLDS_STORAGE_KEY } from "@/
 import type { Answers, QuestionnaireSection } from "@/lib/questionnaire-types";
 import { QuestionnaireCompactText } from "./QuestionnaireCompactText";
 import { CheckupReportHistoryPanel } from "./CheckupReportHistoryPanel";
-import { downloadQuickExamDocx } from "./export-quick-exam-report";
+import { downloadQuickExamDocx, downloadQuickExamMarkdown } from "./export-quick-exam-report";
 import { QuickExamReportMarkdown } from "./QuickExamReportMarkdown";
 import { ThirdPartyReportBox } from "./ThirdPartyReportBox";
 
 function checkupReportStorageKey(t: string) {
   return `lexcheck:checkup-report:text:v1:${t}`;
+}
+
+/** generatedAt 为 null 表示旧格式缓存（改造前只存纯文本，没有时间戳），没法参与"谁更新"的比较。 */
+type CachedReport = { text: string; generatedAt: string | null };
+
+function readCachedReport(token: string): CachedReport | null {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem(checkupReportStorageKey(token));
+  if (!raw) return null;
+  if (raw.trim().startsWith("{")) {
+    try {
+      const parsed = JSON.parse(raw) as Partial<{ text: string; generatedAt: string }>;
+      if (typeof parsed.text === "string") {
+        return { text: parsed.text, generatedAt: parsed.generatedAt ?? null };
+      }
+    } catch {
+      // 落到下面按纯文本处理
+    }
+  }
+  return { text: raw, generatedAt: null };
+}
+
+function writeCachedReport(token: string, text: string) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    checkupReportStorageKey(token),
+    JSON.stringify({ text, generatedAt: new Date().toISOString() })
+  );
+}
+
+/**
+ * 页面初次打开、或从历史版本"返回最新"时，应该显示的到底是哪一份：
+ * 数据库里已保存的报告，和本地缓存的最近一次生成结果，谁的时间更新就用谁——
+ * 之前的逻辑是"只要数据库有保存过的报告就一律用它"，导致律师生成了新报告但没点"保存"时，
+ * 刷新页面反而看到更早之前保存的旧版本，只有绕一圈去历史报告点开再点"返回最新"才能看到真正最新的内容。
+ *
+ * 旧格式缓存（generatedAt 为 null，即这次改造之前写入、还没被新一次生成覆盖掉的缓存）没法比较时间，
+ * 这里改用一个更保守但更实用的判断：内容和数据库已保存版本不一样，就大概率是一次没保存的更新生成，
+ * 优先展示它——总比让律师"感觉丢了最近一次生成结果"要好；内容和已保存版本一样则无所谓，直接用数据库版本。
+ * 这只是一次性的兼容处理，缓存一旦被新一次生成覆盖（带上真实时间戳），就会走上面的精确比较分支。
+ */
+function resolveLatestReportText(
+  token: string,
+  initialFinalReport: { reportText: string; updatedAt: string } | null
+): string {
+  const cached = readCachedReport(token);
+  if (!initialFinalReport?.reportText) return cached?.text ?? "";
+  if (!cached) return initialFinalReport.reportText;
+  if (cached.generatedAt == null) {
+    return cached.text !== initialFinalReport.reportText ? cached.text : initialFinalReport.reportText;
+  }
+  const cachedTime = new Date(cached.generatedAt).getTime();
+  const savedTime = new Date(initialFinalReport.updatedAt).getTime();
+  if (Number.isFinite(cachedTime) && Number.isFinite(savedTime) && cachedTime > savedTime) {
+    return cached.text;
+  }
+  return initialFinalReport.reportText;
+}
+
+const GEN_DURATION_HISTORY_SIZE = 10;
+
+function genDurationStorageKey(mode: string) {
+  return `lexcheck:checkup-report:gen-duration:${mode}`;
+}
+
+function readAvgGenDurationMs(mode: string): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(genDurationStorageKey(mode));
+    if (!raw) return null;
+    const arr = JSON.parse(raw) as unknown;
+    if (!Array.isArray(arr) || arr.length === 0) return null;
+    const nums = arr.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+    if (nums.length === 0) return null;
+    return nums.reduce((a, b) => a + b, 0) / nums.length;
+  } catch {
+    return null;
+  }
+}
+
+/** 只记录成功生成的耗时——失败/未调用大模型的情况耗时没有参考意义，会拉偏平均值。 */
+function recordGenDuration(mode: string, durationMs: number) {
+  if (typeof window === "undefined") return;
+  try {
+    const raw = localStorage.getItem(genDurationStorageKey(mode));
+    const arr = raw ? (JSON.parse(raw) as unknown) : [];
+    const prev = Array.isArray(arr) ? arr.filter((v): v is number => typeof v === "number") : [];
+    const next = [...prev, durationMs].slice(-GEN_DURATION_HISTORY_SIZE);
+    localStorage.setItem(genDurationStorageKey(mode), JSON.stringify(next));
+  } catch {
+    // 忽略，不影响生成本身
+  }
 }
 
 function checkupPromptStorageKey(token: string, sectionKey: string) {
@@ -33,7 +125,7 @@ function checkupPromptVersionStorageKey(token: string, sectionKey: string) {
   return `lexcheck:dd-segment:${token}:${sectionKey}:version`;
 }
 
-/** 读取律师在"AI配置"页面为该模式启用的效果文案；从未打开过该标签页时，用内置默认兜底并顺手写入本地存储。 */
+/** 读取律师在"AI配置"页面为该模式启用的效果文案；从未打开过该标签页时，用默认版兜底并顺手写入本地存储。 */
 function readOrSeedCheckupPrompt(token: string, sectionKey: string): string {
   if (typeof window === "undefined") return "";
   const pk = checkupPromptStorageKey(token, sectionKey);
@@ -124,7 +216,9 @@ export function CheckupReportPanel({
   const [msg, setMsg] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"questionnaire" | "report" | "history">("report");
   const [qDetailMode, setQDetailMode] = useState<"risk-only" | "all">("risk-only");
-  const [reportMode, setReportMode] = useState<"concat" | "fusion" | "advanced">("fusion");
+  const [reportMode, setReportMode] = useState<"concat" | "fusion" | "advanced">("advanced");
+  const [llmSource, setLlmSource] = useState("");
+  const [llmProfiles, setLlmProfiles] = useState<Array<{ source: string; model: string }>>([]);
   const [genBusy, setGenBusy] = useState(false);
   const [reportText, setReportText] = useState(initialFinalReport?.reportText ?? "");
   const [editMode, setEditMode] = useState(false);
@@ -147,6 +241,7 @@ export function CheckupReportPanel({
     endedAt: number | null;
   }>({ moduleCount: null, startedAt: null, endedAt: null });
   const [genStage, setGenStage] = useState<string | null>(null);
+  const [avgDurationMs, setAvgDurationMs] = useState<number | null>(null);
   const [, setTick] = useState(0);
   const reportBodyRef = useRef<HTMLDivElement | null>(null);
   const stageTimersRef = useRef<number[]>([]);
@@ -172,8 +267,7 @@ export function CheckupReportPanel({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (initialFinalReport?.reportText) return; // 已有保存到数据库的报告，以它为准，不用本地缓存的最近一次生成结果覆盖
-    setReportText(localStorage.getItem(checkupReportStorageKey(token)) ?? "");
+    setReportText(resolveLatestReportText(token, initialFinalReport));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
@@ -197,23 +291,39 @@ export function CheckupReportPanel({
     return () => window.clearInterval(id);
   }, [genBusy, runDetail.endedAt]);
 
+  useEffect(() => {
+    fetch("/api/lawyer/llm/profiles")
+      .then((res) => res.json())
+      .then((json: { profiles?: Array<{ source: string; model: string }> }) => {
+        setLlmProfiles(json.profiles ?? []);
+      })
+      .catch(() => {
+        // 忽略：拿不到列表时退回"自动"选项，不影响生成
+      });
+  }, []);
+
   async function generateReport() {
     setErr(null);
     setMsg(null);
     clearStageTimers();
     const startedAt = Date.now();
     setRunDetail({ moduleCount: null, startedAt, endedAt: null });
+    setAvgDurationMs(readAvgGenDurationMs(reportMode));
     setGenBusy(true);
     setGenStage("正在校验模型与模板配置…");
+    // 高级模式是一次调用直接生成完整正文，不存在"先写摘要、再写整改建议"这种分步骤过程，
+    // 用拼装/融合模式的措辞描述会失真；这里按模式分别给出准确一点的说明。
+    const midStageLabel =
+      reportMode === "advanced"
+        ? `正在综合问卷作答内容（已作答 ${answeredQuestions}/${totalQuestions} 题）、客户自述与三方报告，交给大模型撰写完整报告正文…`
+        : `正在按问卷作答内容（已作答 ${answeredQuestions}/${totalQuestions} 题）拼装风险与建议…`;
+    const lateStageLabel =
+      reportMode === "advanced"
+        ? "大模型正在生成报告正文，内容较多时可能需要更长时间…"
+        : "正在调用大模型生成开头概述与整改顺序建议…";
     stageTimersRef.current = [
-      window.setTimeout(
-        () =>
-          setGenStage(
-            `正在按问卷作答内容（已作答 ${answeredQuestions}/${totalQuestions} 题）拼装风险与建议…`
-          ),
-        500
-      ),
-      window.setTimeout(() => setGenStage("正在调用大模型生成开头概述与整改顺序建议…"), 1800),
+      window.setTimeout(() => setGenStage(midStageLabel), 500),
+      window.setTimeout(() => setGenStage(lateStageLabel), 1800),
     ];
     try {
       const promptMd = readOrSeedCheckupPrompt(token, reportModeSectionKey(reportMode));
@@ -229,6 +339,7 @@ export function CheckupReportPanel({
           disclaimerText,
           thresholds: readPriorityThresholds(),
           mode: reportMode,
+          llmSource: llmSource || undefined,
         }),
       });
       const json = (await res.json()) as {
@@ -253,7 +364,8 @@ export function CheckupReportPanel({
       setSelectedHistoryCreatedAt(null);
       setRunDetail((d) => ({ ...d, moduleCount: json.moduleCount ?? null }));
       if (typeof window !== "undefined") {
-        localStorage.setItem(checkupReportStorageKey(token), json.reportText);
+        writeCachedReport(token, json.reportText);
+        if (json.usedAi !== false) recordGenDuration(reportMode, Date.now() - startedAt);
         window.dispatchEvent(
           new CustomEvent("lexcheck:quick-exam-history-updated", { detail: { token } })
         );
@@ -290,11 +402,23 @@ export function CheckupReportPanel({
         ? new Date(runDetail.endedAt)
         : new Date();
     try {
-      await downloadQuickExamDocx(text, base, generatedAt);
+      await downloadQuickExamDocx(text, base, generatedAt, companyName);
       setMsg("Word 已导出");
     } catch (e) {
       setErr(String(e));
     }
+  }
+
+  function exportReportMarkdown() {
+    const text = reportText.trim();
+    if (!text) {
+      setErr("请先生成报告内容");
+      return;
+    }
+    setErr(null);
+    const base = companyName?.trim() || `体检报告-${token.slice(0, 8)}`;
+    downloadQuickExamMarkdown(text, base);
+    setMsg("Markdown 已导出");
   }
 
   async function saveReport() {
@@ -377,7 +501,7 @@ export function CheckupReportPanel({
     setSelectedHistoryJobId(null);
     setSelectedHistoryCreatedAt(null);
     if (typeof window !== "undefined") {
-      setReportText(localStorage.getItem(checkupReportStorageKey(token)) ?? "");
+      setReportText(resolveLatestReportText(token, initialFinalReport));
     }
   }
 
@@ -590,6 +714,9 @@ export function CheckupReportPanel({
                       <span className="text-muted-foreground">耗时：</span>
                       {formatDuration((runDetail.endedAt ?? Date.now()) - runDetail.startedAt)}
                       {genBusy ? " · 进行中" : " · 已结束"}
+                      {genBusy && avgDurationMs != null
+                        ? ` · 该模式近期平均约 ${formatDuration(avgDurationMs)}`
+                        : null}
                       {runDetail.moduleCount != null ? ` · 命中 ${runDetail.moduleCount} 个风险模块` : null}
                     </div>
                     {genStage ? <div>{genStage}</div> : null}
@@ -671,6 +798,19 @@ export function CheckupReportPanel({
                       <option value="concat">拼装模式</option>
                       <option value="advanced">高级模式</option>
                     </select>
+                    <select
+                      value={llmSource}
+                      disabled={genBusy || Boolean(finalizedAt)}
+                      onChange={(e) => setLlmSource(e.target.value)}
+                      className="h-9 rounded-sm border border-border/60 bg-transparent px-2 text-sm text-muted-foreground"
+                    >
+                      <option value="">自动（按默认顺序）</option>
+                      {llmProfiles.map((p) => (
+                        <option key={p.source} value={p.source}>
+                          {p.model}-{p.source === "own" ? "自用" : p.source === "shared" ? "共用" : "共用备用"}
+                        </option>
+                      ))}
+                    </select>
                     <Button
                       type="button"
                       size="default"
@@ -682,6 +822,19 @@ export function CheckupReportPanel({
                       }}
                     >
                       {genBusy ? "生成中…" : "生成报告"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="link"
+                      className="h-9 text-sm"
+                      disabled={!reportText.trim()}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        exportReportMarkdown();
+                      }}
+                    >
+                      导出 md
                     </Button>
                     <Button
                       type="button"

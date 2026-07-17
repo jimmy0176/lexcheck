@@ -28,9 +28,14 @@ export function downloadQuickExamMarkdown(text: string, baseName: string) {
   triggerDownload(blob, `${safeBaseName(baseName)}.md`);
 }
 
-export async function downloadQuickExamDocx(text: string, baseName: string, generatedAt: Date = new Date()) {
+export async function downloadQuickExamDocx(
+  text: string,
+  baseName: string,
+  generatedAt: Date = new Date(),
+  companyName?: string | null
+) {
   const { Packer } = await import("docx");
-  const doc = await buildReportDocxDocument(text);
+  const doc = await buildReportDocxDocument(text, { companyName, issueDate: generatedAt });
   const blob = await Packer.toBlob(doc);
   triggerDownload(blob, `${safeBaseName(baseName)}${timeSuffix(generatedAt)}.docx`);
 }

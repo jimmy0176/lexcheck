@@ -51,7 +51,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ token: 
 
   let attachment: Buffer;
   try {
-    attachment = await buildReportDocxBuffer(reportText);
+    attachment = await buildReportDocxBuffer(reportText, {
+      companyName: checkup.companyName,
+      issueDate: checkup.workspace?.finalReport?.generatedAt,
+    });
   } catch (e) {
     return NextResponse.json(
       { error: "server_error", message: `报告生成 Word 附件失败：${e instanceof Error ? e.message : String(e)}` },

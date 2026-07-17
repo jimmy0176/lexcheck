@@ -5,7 +5,7 @@ import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 import { truncateForPrompt } from "./checkup-attachments";
 
-const MAX_EXTRACTED_CHARS = 24000;
+const MAX_EXTRACTED_CHARS = 100000;
 
 /**
  * pdfjs-dist 默认用相对路径 "./pdf.worker.mjs" 动态 import worker，
@@ -31,7 +31,24 @@ function normalizeText(raw: string) {
   return raw.replace(/\r/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-export async function extractAttachmentText(filePath: string) {
+export type ExtractedAttachmentText = {
+  text: string;
+  /** 原文超出 MAX_EXTRACTED_CHARS、被截断丢弃了尾部内容 */
+  truncated: boolean;
+  /** 截断前的完整字符数；未截断时等于 text.length（不含"…（已截断）"这类提示后缀） */
+  originalLength: number;
+};
+
+function buildResult(normalized: string): ExtractedAttachmentText {
+  const truncated = normalized.length > MAX_EXTRACTED_CHARS;
+  return {
+    text: truncateForPrompt(normalized, MAX_EXTRACTED_CHARS),
+    truncated,
+    originalLength: normalized.length,
+  };
+}
+
+export async function extractAttachmentText(filePath: string): Promise<ExtractedAttachmentText> {
   const ext = path.extname(filePath).toLowerCase();
   if (ext === ".pdf") {
     ensurePdfWorkerConfigured();
@@ -39,8 +56,7 @@ export async function extractAttachmentText(filePath: string) {
     const parser = new PDFParse({ data: buf });
     const parsed = await parser.getText();
     await parser.destroy();
-    const normalized = normalizeText(parsed.text || "");
-    return truncateForPrompt(normalized, MAX_EXTRACTED_CHARS);
+    return buildResult(normalizeText(parsed.text || ""));
   }
   if (ext === ".docx") {
     const buf = await readFile(filePath);
@@ -60,11 +76,10 @@ export async function extractAttachmentText(filePath: string) {
         extracted = "";
       }
     }
-    const normalized = normalizeText(extracted);
-    return truncateForPrompt(normalized, MAX_EXTRACTED_CHARS);
+    return buildResult(normalizeText(extracted));
   }
   if (ext === ".doc") {
-    return "暂不支持自动解析 .doc（建议转为 .docx 后上传）。";
+    return { text: "暂不支持自动解析 .doc（建议转为 .docx 后上传）。", truncated: false, originalLength: 0 };
   }
-  return "该文件类型暂不支持文本提取。";
+  return { text: "该文件类型暂不支持文本提取。", truncated: false, originalLength: 0 };
 }

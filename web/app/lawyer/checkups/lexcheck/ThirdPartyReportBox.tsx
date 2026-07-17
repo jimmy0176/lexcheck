@@ -9,6 +9,12 @@ type AttachmentInfo = {
   createdAt: string;
   hasExtractedText: boolean;
   extractError: string | null;
+  extractedTextTruncated: boolean;
+  extractedTextOriginalLength: number | null;
+  /** 提取的原文超过高级模式的详细摘要触发门槛（见 ADVANCED_THIRDPARTY_DETAIL_TRIGGER_CHARS），生成报告时会改用预提取摘要而不是原文 */
+  willUseDetailedExtract: boolean;
+  /** 摘要是否已经预处理生成好（上传时尝试过一次；未就绪时会在首次生成报告时按需补一次） */
+  hasDetailedExtract: boolean;
 };
 
 export function ThirdPartyReportBox({ token }: { token: string }) {
@@ -124,7 +130,22 @@ export function ThirdPartyReportBox({ token }: { token: string }) {
               {attachment.extractError ? (
                 <span className="shrink-0 text-sm text-destructive">解析失败：{attachment.extractError}</span>
               ) : attachment.hasExtractedText ? (
-                <span className="shrink-0 text-sm text-emerald-700 dark:text-emerald-400">已提取内容</span>
+                <>
+                  {attachment.extractedTextTruncated ? (
+                    <span className="shrink-0 text-sm text-amber-700 dark:text-amber-400">
+                      已提取内容，但原文约 {attachment.extractedTextOriginalLength?.toLocaleString() ?? "?"} 字，超出部分未纳入分析
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-sm text-emerald-700 dark:text-emerald-400">已提取内容</span>
+                  )}
+                  {attachment.willUseDetailedExtract ? (
+                    <span className="shrink-0 text-sm text-amber-700 dark:text-amber-400">
+                      {attachment.hasDetailedExtract
+                        ? "字数超长，已自动预提取摘要，高级模式将使用摘要生成报告"
+                        : "字数超长，正在预提取摘要，首次生成报告时会自动补齐"}
+                    </span>
+                  ) : null}
+                </>
               ) : (
                 <span className="shrink-0 text-sm text-muted-foreground">未提取到文字内容</span>
               )}

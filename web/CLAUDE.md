@@ -87,7 +87,7 @@ web/
 │   │       ├── page.tsx
 │   │       ├── CheckupReportPanel.tsx       # 报告制作（问卷详情/报告制作/历史报告三个子标签）
 │   │       ├── PromptConfigPanel.tsx        # AI配置页：拼装/融合/高级/三方报告提取/免责声明五个标签页
-│   │       ├── CheckupPromptEditor.tsx      # 单栏内容编辑器（内置默认只读 + 律师自建模版），被上者复用
+│   │       ├── CheckupPromptEditor.tsx      # 单栏内容编辑器（默认版只读 + 律师自建模版），被上者复用
 │   │       ├── QuickExamReportMarkdown.tsx  # 报告 Markdown 预览
 │   │       ├── export-quick-exam-report.ts      # 导出（Word/PDF）+ GFM 表格修复
 │   │       └── ThirdPartyReportBox.tsx      # 三方报告上传与预览
@@ -269,16 +269,24 @@ shouldUseSyncPipeline() 判断
 | 正文字体 | Arial 11pt |
 | 页边距 | 上/左/右 2.12 cm，下 2.54 cm |
 | 行距 | 1.5 倍 |
-| H2（##） | Arial，加粗，蓝色 `#2E74B5` |
-| H3（###） | Arial，加粗，深蓝 `#1F4D78` |
+| H1（#，仅法律体检报告最顶部文档标题一处，居中） | Arial，加粗，深蓝 `#1F4D78`，40pt |
+| H2（##，法律体检报告各章节标题/尽调应用模块标题） | Arial，加粗，深藏青 `#0B1958` |
+| H3（###，法律体检报告高级模式风险主题标题，如"### 1. 主题名"） | Arial，加粗，蓝色 `#2E74B5` |
+| H4（####，预留未使用） | Arial，加粗，深蓝 `#1A2E4A`，20pt（明确小于 H3，避免层级越深字号反而越大），段前带 `keepNext` |
 | 有序列表数字 | 金色 `#B8982A` |
 | 有序列表正文 | 深海蓝 `#1A2E4A` |
 | 表格边框 | 单线 1pt，灰色 `#AAAAAA` |
 | 表头背景 | 灰色 `#D9D9D9`，加粗 |
+| 表格行 | `cantSplit: true`，禁止单行跨页拆分 |
 
 样式实现位置：
-- `lib/quick-exam-markdown-docx.ts`：Markdown AST → docx 段落/表格，含有序列表配色
-- `app/lawyer/checkups/lexcheck/export-quick-exam-report.ts`：Document 样式定义（字体、页边距、标题颜色）
+- `lib/quick-exam-markdown-docx.ts`：Markdown AST → docx 段落/表格，含有序列表配色、表格 `cantSplit`。`tableCellToDocx()` 要注意 mdast 的 `TableCell.children` 直接是 `PhrasingContent[]`（text/strong/...），不会像普通块级内容那样包一层 `paragraph` 节点——按 `paragraph` 类型过滤会导致所有表格单元格永远匹配不到内容，全部渲染成空白（曾经出现过的真实 bug）
+- `lib/report-docx.ts`：法律体检应用（lexcheck）报告导出的 `Document` 样式定义（字体、页边距、标题颜色，含 H4）与封面页构建，客户端导出（`Packer.toBlob`）和服务端邮件附件（`Packer.toBuffer`）共用同一个 `buildReportDocxDocument()`
+- `app/lawyer/checkups/dd-report/export-quick-exam-report.ts`：尽调报告应用（非优先维护）另有一份几乎相同的独立实现，两者不共用
+
+**Word 封面页（`lib/report-docx.ts` 的 `buildCoverSectionChildren()`）：** 报告 docx 的第一个 section 是独立封面页，用真实设计稿背景图（`web/public/assets/report-cover-bg.png`，深藏青底 + 蓝色波纹线条，A4 比例 1055×1491px）铺满整页，不再是早期版本用纯色块+直线模拟波纹的方案。图片以 `ImageRun` 的 `floating`（`behindDocument: true`、`relative: PAGE`、`wrap: NONE`）方式实现"整页出血背景图 + 文字浮在上面"的效果，尺寸按 A4 在 96dpi 下的像素值（794×1123px）铺满、不拉伸变形。文字布局：正中偏上两行（"企业法律体检报告" + 委托方公司名，均白色），中间偏下两行（"HE PARTNERS" 品牌落款 + 日期，格式为 `2026.7.18` 这种点分不补零格式，不带"出具日期"字样，由 `formatCoverIssueDate()` 生成）。四行文字全部显式指定 `font: { name: "Arial", eastAsia: "Arial" }`（避免中文字符走文档主题默认的等线字体），字号 64/40/32/26；上方标题两行 `spacing.before` 收紧到 4400，下方品牌落款两行前的间隔加大到 4000，整体视觉上"标题偏上、落款偏下"。
+
+背景图加载分两条路径：服务端（邮件发送等场景）直接 `fs.readFile` 读 `public` 目录下的文件，不经过网络；浏览器端（客户端导出）用 `fetch("/assets/report-cover-bg.png")` 拉取同一份静态资源。**任一路径加载失败都会返回 `null`，此时自动回退成纯色块封面**（复用旧版设计的深藏青 `#0B1958` 单元格表格 + 同样的文字），保证背景图缺失（比如某个部署环境没同步这个静态文件）不会导致整份报告生成失败。第二个 section 才是原有正文（页边距不变）。`buildReportDocxDocument(text, { companyName, issueDate })`/`buildReportDocxBuffer(text, opts)` 都有这两个可选参数，客户端导出（`export-quick-exam-report.ts` 的 `downloadQuickExamDocx`）和邮件发送（`report/send-email/route.ts`）两处调用都已经传入对应的公司名和生成时间。
 
 ---
 
@@ -329,21 +337,39 @@ shouldUseSyncPipeline() 判断
 |------|-------------|-------------|------|
 | 拼装模式 | `CHECKUP_REPORT_CONCAT_SECTION_KEY` | `mode=concat` | AI 只写「报告摘要」+「重点整改顺序建议」，模块正文 100% 规则拼装 |
 | 融合模式 | `CHECKUP_REPORT_FUSION_SECTION_KEY` | `mode=fusion` | AI 额外整合润色每个模块的风险+建议正文（逐模块粒度兜底：某模块未返回时该模块单独退回规则拼装） |
-| 高级模式 | `CHECKUP_REPORT_ADVANCED_SECTION_KEY` | `mode=advanced` | AI 一次性生成「摘要 → 各模块 → 整改建议」整段 Markdown，模块顺序/分组/取舍均可由提示词控制；页头信息与免责声明仍由代码固定拼接 |
-| 三方报告提取 | `CHECKUP_REPORT_THIRDPARTY_SECTION_KEY` | 不属于上面三种模式，是一个独立的前置步骤 | 从上传的三方背景报告原文提炼 `companyInfo`/`highlights`，随报告开头一并插入，结果按附件缓存 |
+| 高级模式 | `CHECKUP_REPORT_ADVANCED_SECTION_KEY` | `mode=advanced` | AI 一次性生成固定六章节结构（均为二级标题 `##`）：「报告基础与分析口径 → 公司总体法律风险画像 → 评分与重点风险概览（含两张表格：模块评分表 + 重点风险概览表）→ 专项风险分析与律师建议（5-8 个归并后的综合风险主题，`### 主题名` 三级标题，v6 起不再编号）→ 90日整改工作安排（含表格）→ 结论」；页头信息与免责声明仍由代码固定拼接。**没有护栏，整段全部开放给律师编辑**；不再要求逐问卷模块单独开标题——模块由模型自行归并成"综合风险主题"。v7 起新增大量"避免过度推断"的护栏内容：区分问卷"未填写"与"明确触发风险"、区分三方报告"当前/历史""有效/无效""本企业/关联主体"、限制诉讼/重组/家族信托等重大措施的建议尺度、正文列表统一用无序列表（不用阿拉伯数字编号，避免和之前"标题编号"是同一类"不同层级序号重复"的观感问题） |
+| 三方报告提取 | `CHECKUP_REPORT_THIRDPARTY_SECTION_KEY` | 不属于上面三种模式，是一个独立的前置步骤 | **仅拼装/融合模式使用**：从上传的三方背景报告原文提炼 `companyInfo`/`highlights`，随报告开头一并插入，结果按附件缓存。高级模式不走这条路径，见下方说明 |
 | 免责声明 | `CHECKUP_REPORT_DISCLAIMER_SECTION_KEY` | 不经过大模型 | 报告末尾固定文本，律师可完全自由改写，逐字插入报告，没有护栏 |
 
-**前四个标签页的系统提示词分两层，都在 `lib/dd-segment-default-templates.ts` 里定义：**
-- `CHECKUP_REPORT_GUARDRAILS[sectionKey]`：**护栏**，硬性约束（JSON 输出契约/键名、禁止编造、融合模式"风险与建议不能只留一半"等），代码固定拼接在 system 提示词最前面，页面上只读展示，律师不能编辑。免责声明没有对应护栏条目（不经过大模型），`CheckupPromptEditor` 的 `guardrail` 传空字符串时不渲染护栏区块。
-- `CHECKUP_REPORT_PROMPT_DEFAULTS[sectionKey]`：**效果文案的内置默认值**（五个标签都有，免责声明这一条就是文档正文本身），语气、结构、分段规则等与生成效果直接相关的部分，律师可在页面上整段改写、另存为自定义模版、选择"启用"生效。
+**拼装/融合/三方报告提取这三个标签页的系统提示词分两层，都在 `lib/dd-segment-default-templates.ts` 里定义：**
+- `CHECKUP_REPORT_GUARDRAILS[sectionKey]`：**护栏**，硬性约束（JSON 输出契约/键名、禁止编造、融合模式"风险与建议不能只留一半"等），代码固定拼接在 system 提示词最前面，页面上只读展示，律师不能编辑。高级模式和免责声明都没有对应护栏条目，`CheckupPromptEditor` 的 `guardrail` 传空字符串时不渲染护栏区块。
+- `CHECKUP_REPORT_PROMPT_DEFAULTS[sectionKey]`：**效果文案的默认版内容**（五个标签都有，免责声明这一条就是文档正文本身，高级模式这一条额外并入了原本的护栏硬性约束），语气、结构、分段规则等与生成效果直接相关的部分，律师可在页面上整段改写、另存为自定义模版、选择"启用"生效。
+
+`CheckupPromptEditor.tsx` 页面布局：模版名称在最上面，其次是护栏展示区（无护栏则不渲染），最后是可编辑正文；左侧模版列表第一项固定是"默认版"（只读，对应 `CHECKUP_REPORT_PROMPT_DEFAULTS[sectionKey]`）。
 
 `lib/checkup-report-generate.ts` 里的 `buildSystemPrompt(sectionKey, effectiveText)` 负责把"护栏 + 律师保存的效果文案（为空则用内置默认）"拼成最终 system 消息；免责声明不走这个函数，是直接把律师保存的文本（为空则用内置默认）逐字拼进 `reportText`。
 
+**高级模式的问卷数据与三方报告输入（与拼装/融合模式不同）：** 拼装/融合模式给 LLM 的"模块事实"只包含扣分题（`assembleAllModules`，满分题连同整节满分的章节都会被过滤掉，不会出现在 payload 里），三方报告则由 `getThirdPartyReportSection()` 单独起一次独立的 LLM 调用先压缩成 `companyInfo`/`highlights` 两段摘要、缓存后直接拼进最终文档，写报告正文的那次调用完全看不到三方报告的任何内容。高级模式改用 `assembleAllModulesFull()`（`lib/checkup-report-assemble.ts`），把每道单选题（不管是否扣分）的题目、客户实际选中的选项、得分、预设风险描述与建议全部列出；三方报告内容和问卷全量数据放进同一条 user 消息，由同一次生成调用综合判断——是否要在正文里体现三方报告内容、体现到什么程度，完全由律师在"AI配置→高级模式"里保存的 prompt 自行决定（当前默认版要求把三方报告和问卷相互印证、篇幅不超过正文约 20%，不再有代码固定拼接的「三方背景信息」小节）。高级模式的 `max_tokens` 是 6500（其余模式仍是各自原值），比默认版要求的 3500-5500 中文字符输出留了余量，避免长报告在结尾被截断。
+
+**三方报告原文过长时的降级链路（`lib/checkup-report-generate.ts`）：** 原文提取阶段有硬截断（`lib/extract-attachment-text.ts` 的 `MAX_EXTRACTED_CHARS`，当前 100,000 字，超出部分直接丢弃），这个数字纯粹是代码里写死的上限，不是 pdf-parse/mammoth 本身的限制；仍然不支持表格结构还原与扫描件 OCR。`extractAttachmentText()` 返回 `{ text, truncated, originalLength }`，写入 `CheckupAttachment.extractedTextTruncated`/`extractedTextOriginalLength` 并透传到 `/api/lawyer/checkups/[token]/third-party-report` 的响应，`ThirdPartyReportBox.tsx` 据此展示"原文约 N 字，超出部分未纳入分析"的提示。截断上限之内的原文如果本身仍然很长，和问卷全量数据、system prompt 一起提交高级模式主调用时仍可能超出模型的上下文窗口——由于律师的模型配置是纯 BYOK（任意 OpenAI 兼容 endpoint + 任意 model 字符串，`lib/llm-resolve.ts` 完全不做 token 计数或上下文窗口感知），无法精确判断"会不会超"，因此这里只按一个面向主流国内大模型（旗舰/长文本档位通常至少 32K～128K tokens）设定的经验字符阈值 `ADVANCED_THIRDPARTY_DETAIL_TRIGGER_CHARS`（当前 85,000 字，不考虑上下文窗口很小的模型）触发降级：
+- 三方报告原文长度 ≤ 阈值：直接用原文（现状不变）。
+- 超过阈值：改用 `getThirdPartyDetailedExtract()` 单独一次 LLM 调用生成的"详细摘要"（`CHECKUP_REPORT_THIRDPARTY_DETAILED_PROMPT`，`lib/dd-segment-default-templates.ts`）——这个 prompt 不是律师可编辑的效果文案，没有 section key，不在 AI配置 页面出现，只在这条降级链路内部使用；它和拼装/融合模式用的 `CHECKUP_REPORT_THIRDPARTY_DEFAULT`（两三句话概述）不同，要求尽量保留案号、金额、日期、当事人等具体细节，控制在 8000-15000 字，供高级模式主调用当作三方报告内容使用。摘要结果缓存在 `CheckupAttachment.parsedSummaryJson.detailedExtract`。
+- 预处理时机：`third-party-report` 的 `POST`（上传接口）里，原文超过阈值就会立即尝试生成一次详细摘要并缓存，尽力而为、失败不阻塞上传；真正生成报告时 `getThirdPartyContentForAdvanced()` 还会按需补一次（未缓存成功时现场生成）。
+- 兜底重试：高级模式主调用如果失败，且当时用的是原文（未走详细摘要）、原文长度 > 20,000 字，会自动换成详细摘要重试一次——不解析具体报错原因（不同供应商措辞不一致，判断不可靠），只要值得重试就试；重试后仍失败，`noAiFallback()` 的降级提示会替换成提示"可能是内容超出模型上下文，建议精简内容或换更大上下文的模型"的专门文案，和"账号/Key 均不可用"的通用提示区分开。
+- 前端提示：`ThirdPartyReportBox.tsx` 除了截断提示，还会在原文超过阈值时展示"字数超长，已自动预提取摘要/正在预提取摘要"（`attachment.willUseDetailedExtract`/`hasDetailedExtract`，由 GET/POST 响应带出）。
+- 模型建议：`LlmSettingsPanel.tsx`（律师本人 Key）和 `AdminAccountsClient.tsx`（管理员共用/共用备用 Key）的模型配置页都加了一句提示，建议优先选择旗舰/长文本档位模型；`lib/llm-providers.ts` 里各供应商的 `models` 预置列表本身也已包含这类档位（如 `qwen-max`/`qwen-plus`、`deepseek-v4-pro`、`glm-5.2`、`moonshot-v1-128k`）。
+
+**报告头部（`generateCheckupReport()` 里的 `headerLines`，三种模式共用，代码固定拼接，不经过大模型改写）：** 一级标题"{委托方}法律体检报告"（居中），下接报告编号、报告日期、体检对象、统一社会信用代码、企业类型、所属行业六行。报告编号由 `buildReportNo(token, issueDate)` 纯前端派生（`LX-{年月日}-{token 哈希取模三位数字}`），同一份体检每次生成都得到相同编号，不需要额外的序号表。统一社会信用代码/企业类型/所属行业来自 `getHeaderCompanyInfo()`——单独一次轻量 LLM 调用（`temperature: 0`），只从三方报告原文里提取这三个结构化短字段，与高级模式主调用的"综合分析报告正文"职责分开；结果缓存在 `CheckupAttachment.parsedSummaryJson.headerFields`，避免每次生成都重新调用。没有三方报告、未启用三方报告或提取失败时，对应字段显示"未提供"。**这六行的粗体标签冒号必须写在闭合 `**` 外面**（`**报告编号**：值`，不能写成 `**报告编号：**值`）——CommonMark 强调分隔符的 flanking 规则下，闭合 `**` 前一个字符是标点（冒号）、后一个字符又紧跟非空白内容时，不构成有效右侧定界符，整行会被解析成纯文本、字面显示 `**`（真实出现过的 bug，`**问题依据：**\n正文` 这类后面紧跟换行的用法不受影响，只有"标签+冒号+值在同一行、值前没有换行或空格"这种模式会触发）。
+
 **存储位置：** localStorage，键名同尽调报告那套，仍是 `lexcheck:dd-segment:{token}:{sectionKey}:prompt`（不再有 `:output` 这个键——五个标签页均已合并为单栏文本框），按 token 隔离；律师自建的模版库存 `lexcheck:checkup-report:saved-prompts:v1`（每条含 sectionKey，五个标签共用同一个库、按 sectionKey 过滤）。
 
-**版本机制：** `CHECKUP_REPORT_PROMPT_VERSION`（当前 `"v1"`）控制五个标签统一强制刷新；改了任意一个 `CHECKUP_REPORT_PROMPT_DEFAULTS` 的内置默认文案后，把这个常量改成下一个版本号即可让所有 token 的 localStorage 用新默认覆盖旧值。
+**版本机制：** `CHECKUP_REPORT_PROMPT_VERSION`（当前 `"v7"`）控制五个标签统一强制刷新；改了任意一个 `CHECKUP_REPORT_PROMPT_DEFAULTS` 的默认版文案后，把这个常量改成下一个版本号即可让所有 token 的 localStorage 用新默认覆盖旧值——**注意这是五个标签共用一个版本号，一旦触发会把所有 token 下这五个标签已经"启用"的内容（包括律师自己编辑并启用过的自定义正文）一并覆盖回新默认版，不是只刷新改动的那一个标签**，改动前需要评估是否有律师已经在生产环境自定义并启用过其他标签的内容。
 
-**局部失败提示：** `generateCheckupReport()` 返回值里的 `degraded` 字段——summary/actionPlan 落到占位文案、融合模式某模块退回规则拼装、或高级模式返回内容缺少「### 报告摘要」「### 重点整改顺序建议」等结构标志时会置为 `true`，前端 `CheckupReportPanel.tsx` 据此在生成成功但内容不完整时额外提示"部分内容未完全生成，已用预设内容兜底，建议人工核对"，与"未使用大模型"（`usedAi: false`）的整体失败提示区分开。
+**局部失败提示：** `generateCheckupReport()` 返回值里的 `degraded` 字段——summary/actionPlan 落到占位文案、融合模式某模块退回规则拼装、或高级模式返回内容缺少固定小节标题时会置为 `true`，前端 `CheckupReportPanel.tsx` 据此在生成成功但内容不完整时额外提示"部分内容未完全生成，已用预设内容兜底，建议人工核对"，与"未使用大模型"（`usedAi: false`）的整体失败提示区分开。高级模式的完整性检查在 `assessAdvancedOutput()`：必须同时出现「## 报告基础与分析口径」「## 公司总体法律风险画像」「## 评分与重点风险概览」「## 专项风险分析与律师建议」「## 90日整改工作安排」「## 结论」这六个固定二级标题，且至少出现一个三级标题（`###`）——v6 起风险主题标题不再要求编号（`### 1. xxx`），因为编号和正文"律师建议的近期动作"里的阿拉伯数字编号列表放在一起容易混淆到底是标题序号还是列表序号，所以干脆去掉标题编号，靠标题本身的字号/颜色区分层级，检查逻辑相应放宽成"至少出现一个三级标题"。标题级别正则用 `(?!#)` 卡住层级（如 `##(?!#)`），避免"检查 `##`"时把文中出现的 `###` 也算命中。
+
+**生成报告时手动选择模型来源：** `CheckupReportPanel.tsx` 的"报告制作"标签页在模式下拉框（默认 `"advanced"`，即高级模式，之前默认融合模式）和"生成报告"按钮之间加了第二个下拉框，选项来自 `GET /api/lawyer/llm/profiles`（`resolveLlmProfiles(lawyer.id)` 去掉 `apiKey`/`base` 后原样返回 `{source, model}` 列表），显示成"{model}-自用/共用/共用备用"；默认选中"自动（按默认顺序）"（对应不传 `llmSource`，走原有级联）。选中具体来源后，前端把 `llmSource` 带进 `POST checkup-report` 请求体，一路透传进 `generateCheckupReport(opts.llmSource)`，再传给 `resolveLlmProfiles(lawyerId, preferredSource)`——传了 `preferredSource` 时直接把候选列表过滤成那一个来源，不会再退回级联（该来源当时恰好失效也不会静默换成别的来源，而是按"无可用档案"处理），报告正文调用和三方报告相关的几次辅助调用（`getHeaderCompanyInfo`/`getThirdPartyReportSection`/`getThirdPartyDetailedExtract`）都会带上同一个 `llmSource`，保持一次生成过程里用的是同一个模型来源。
+
+**导出 md：** "导出 Word"按钮左边新增"导出 md"，调用 `export-quick-exam-report.ts` 里早就存在但之前没在这个面板接入过的 `downloadQuickExamMarkdown(text, baseName)`——直接把 `reportText` 状态包成 `Blob` 触发下载，不经过 docx 转换。
 
 ---
 
@@ -375,7 +401,7 @@ shouldUseSyncPipeline() 判断
 律师端「报告制作」（`CheckupReportPanel.tsx`）在 AI 生成报告之后，新增了脱离"生成即结束"的后续处理能力，复用了原本只给尽调报告应用用的 `CheckupFinalReport` 表（1:1 挂在 `CheckupWorkspace` 下）。
 
 **存储与状态：**
-- 报告正文落库在 `CheckupFinalReport.reportText`，不再只存在 localStorage / React state 里（localStorage 仍保留，作为"最近一次生成但未保存"的兜底，优先级低于数据库里的已保存版本）。
+- 报告正文落库在 `CheckupFinalReport.reportText`，不再只存在 localStorage / React state 里；localStorage 仍保留一份"最近一次生成结果"（`checkupReportStorageKey`，`{text, generatedAt}` 结构，`writeCachedReport()`/`readCachedReport()`），但**不是**简单地"数据库有保存过就永远优先用数据库"——那样会导致律师生成了新报告但忘了点"保存"，刷新页面后反而看到更早保存的旧版本（真实出现过的问题）。实际逻辑是 `resolveLatestReportText()`：比较本地缓存的 `generatedAt` 和 `CheckupFinalReport.updatedAt`，谁的时间更新就展示谁；页面初次挂载和"返回最新"（从历史版本切回来）都走这个函数，保持一致。旧版本 localStorage 里的纯文本（没有时间戳）会被当作很旧的缓存处理，不会错误覆盖数据库版本。
 - `finalizedAt` 非空即代表"已定稿"：定稿后编辑区、保存、重新生成按钮全部禁用，需先点"取消定稿"解锁。服务端 `POST /api/lawyer/checkups/[token]/report` 也会拒绝对已定稿报告的保存请求（不是纯前端限制）。
 - `emailSentAt`/`emailSentTo` 记录最近一次发送邮件的时间与收件地址，供界面展示。
 
@@ -385,6 +411,8 @@ shouldUseSyncPipeline() 判断
 - `POST report/send-email`：把已保存的报告正文转成 Word 附件（`lib/report-docx.ts` 的 `buildReportDocxBuffer()`，服务端用 `docx` 包的 `Packer.toBuffer()`，和客户端导出共用同一份 `buildReportDocxDocument()` 排版逻辑，只是产出 Buffer 而非 Blob）发送邮件；收件地址默认取该问卷关联客户账号的 `email`，也可在发送前手动改写；邮件正文/主题留空时会自动生成。发送前必须已保存报告（未保存直接拒绝）。
 
 **编辑体验：** 报告预览默认是渲染后的 Markdown（`QuickExamReportMarkdown`），点"编辑"切换成纯文本 `<textarea>` 直接改 `reportText`；"保存"按钮只在内容和已保存版本不一致时可点，未保存的修改会在状态栏提示"有未保存的修改"。
+
+**生成中的进度提示：** 高级模式是单次调用直接产出完整正文，不存在"先写摘要、再写整改建议"这种分步骤过程，`generateReport()` 里两段延时提示文案按 `reportMode` 分开措辞，不再对高级模式也显示"正在生成开头概述与整改顺序建议"这种只适用于拼装/融合模式的说法。另外每次成功生成（`usedAi !== false`）会把耗时记进 `localStorage`（`genDurationStorageKey(mode)`，按模式分别存，只保留最近 10 次），生成中时状态栏会显示"该模式近期平均约 X"，作为等待时长的参考，不追求准确复刻真实后端阶段。
 
 ---
 

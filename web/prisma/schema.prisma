@@ -171,6 +171,10 @@ model CheckupAttachment {
   storagePath  String
   extractedText String?
   extractError String?
+  /** extractedText 是否被截断（原文超出提取上限）；截断时前端据此提示律师本次提取不完整。 */
+  extractedTextTruncated Boolean @default(false)
+  /** 原文提取后的完整字符数（截断前），用于提示"提取了多少/全文多少"。未截断或未提取时为空。 */
+  extractedTextOriginalLength Int?
   /** LLM 从三方报告原文提取的 {companyInfo, highlights} 缓存；仅 thirdParty 类型使用，避免每次生成报告都重新调用。 */
   parsedSummaryJson Json?
   createdAt    DateTime @default(now())

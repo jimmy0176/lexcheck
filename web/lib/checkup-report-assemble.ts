@@ -208,8 +208,67 @@ export function assembleAllModules(
 
 export function buildModulesMarkdown(modules: ModuleAssembly[]): string {
   return modules
-    .map((m) => `### ${m.title}模块　优先级：${m.priority}（${m.score}/${m.maxScore} 分）\n\n${m.bodyMarkdown}`)
+    .map((m) => `## ${m.title}模块　优先级：${m.priority}（${m.score}/${m.maxScore} 分）\n\n${m.bodyMarkdown}`)
     .join("\n\n");
+}
+
+export type QuestionDetail = {
+  qid: string;
+  question: string;
+  /** 客户实际选中的选项文案；未作答为 null */
+  selectedLabel: string | null;
+  score: number;
+  riskText: string | null;
+  adviceText: string | null;
+};
+
+export type ModuleFullAssembly = {
+  sectionId: string;
+  title: string;
+  score: number;
+  maxScore: number;
+  priority: PriorityLabel;
+  /** 本节全部单选题的完整明细，不管是否扣分——供高级模式一次性把问卷全量数据交给大模型判断 */
+  questions: QuestionDetail[];
+};
+
+/**
+ * 按章节输出全部单选题的完整明细（含拿满分、不扣分的题目），不像 `assembleAllModules` 那样只保留扣分项。
+ * 专供「高级模式」使用，让大模型能看到与人工把问卷原文（含每题实际选项）交给通用大模型时等量的信息。
+ */
+export function assembleAllModulesFull(
+  config: QuestionnaireConfig,
+  answers: Answers,
+  thresholds: PriorityThresholds = DEFAULT_PRIORITY_THRESHOLDS
+): ModuleFullAssembly[] {
+  const modules: ModuleFullAssembly[] = [];
+  for (const section of config.sections) {
+    if (typeof section.maxScore !== "number") continue;
+    const skipped = computeSkippedQids(section, answers);
+    let score = 0;
+    const questions: QuestionDetail[] = [];
+    for (const q of section.questions) {
+      if (q.type !== "single_choice") continue;
+      const r = resolveQuestionScore(q, answers, skipped);
+      score += r.score;
+      const a = answers[q.qid];
+      const selectedLabel =
+        a?.kind === "single_choice" && a.value ? (q.options.find((o) => o.value === a.value)?.label ?? null) : null;
+      questions.push({
+        qid: q.qid,
+        question: q.question,
+        selectedLabel,
+        score: r.score,
+        riskText: r.riskText,
+        adviceText: r.adviceText,
+      });
+    }
+    const maxScore = section.maxScore;
+    const ratio = maxScore > 0 ? score / maxScore : 1;
+    const priority = computePriorityLabel(ratio, thresholds);
+    modules.push({ sectionId: section.sectionId, title: section.title, score, maxScore, priority, questions });
+  }
+  return modules;
 }
 
 /** 全部开放题（textarea 类型）已填写的答案，供 LLM 撰写报告摘要时参考。不假设固定的题目数量或所在章节。 */

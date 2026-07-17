@@ -101,6 +101,11 @@ export function LlmSettingsPanel() {
             ；此处设置的 Key 关联到当前登录账号，登录本账号的任意设备均可使用，生成报告时优先调用。
             若未配置或调用失败，会依次尝试管理员配置的共用 Key、共用备用 Key。
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            体检报告「高级模式」会把问卷全量数据和三方报告一起提交，内容较长时对模型的上下文窗口要求较高，
+            建议优先选择各供应商的旗舰或长文本档位（如 qwen-max/qwen-plus、deepseek-v4-pro、glm-5.2、moonshot-v1-128k
+            等上下文窗口较大的型号），避免用较小上下文的轻量档位处理长三方报告。
+          </p>
         </div>
 
         {message || error ? (
