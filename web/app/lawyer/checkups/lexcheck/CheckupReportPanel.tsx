@@ -317,13 +317,10 @@ export function CheckupReportPanel({
       reportMode === "advanced"
         ? `正在综合问卷作答内容（已作答 ${answeredQuestions}/${totalQuestions} 题）、客户自述与三方报告，交给大模型撰写完整报告正文…`
         : `正在按问卷作答内容（已作答 ${answeredQuestions}/${totalQuestions} 题）拼装风险与建议…`;
-    const lateStageLabel =
-      reportMode === "advanced"
-        ? "大模型正在生成报告正文，内容较多时可能需要更长时间…"
-        : "正在调用大模型生成开头概述与整改顺序建议…";
+    const lateStageLabel = reportMode === "advanced" ? null : "正在调用大模型生成开头概述与整改顺序建议…";
     stageTimersRef.current = [
       window.setTimeout(() => setGenStage(midStageLabel), 500),
-      window.setTimeout(() => setGenStage(lateStageLabel), 1800),
+      ...(lateStageLabel ? [window.setTimeout(() => setGenStage(lateStageLabel), 1800)] : []),
     ];
     try {
       const promptMd = readOrSeedCheckupPrompt(token, reportModeSectionKey(reportMode));
@@ -369,6 +366,24 @@ export function CheckupReportPanel({
         window.dispatchEvent(
           new CustomEvent("lexcheck:quick-exam-history-updated", { detail: { token } })
         );
+      }
+      // 生成的原稿自动当作已保存，律师没有手动编辑时也能直接定稿，不用多点一次"保存"；
+      // 静默失败不影响报告展示，律师仍可以用"保存"按钮手动补救。
+      try {
+        const saveRes = await fetch(`/api/lawyer/checkups/${encodeURIComponent(token)}/report`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reportText: json.reportText }),
+        });
+        const saveJson = (await saveRes.json()) as {
+          ok?: boolean;
+          finalReport?: { reportText: string };
+        };
+        if (saveRes.ok && saveJson.ok && saveJson.finalReport) {
+          setSavedReportText(saveJson.finalReport.reportText);
+        }
+      } catch {
+        // 忽略：自动保存失败不阻断报告展示
       }
       if (json.usedAi === false) {
         setMsg("体检报告已生成（未使用大模型，仅拼接预设文案）");
@@ -710,7 +725,7 @@ export function CheckupReportPanel({
 
                 {runDetail.startedAt != null ? (
                   <div className="mt-2 shrink-0 space-y-1 rounded-sm border border-border/60 px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
-                    <div>
+                    <div className="text-sm">
                       <span className="text-muted-foreground">耗时：</span>
                       {formatDuration((runDetail.endedAt ?? Date.now()) - runDetail.startedAt)}
                       {genBusy ? " · 进行中" : " · 已结束"}
@@ -765,7 +780,7 @@ export function CheckupReportPanel({
                       size="sm"
                       variant="outline"
                       className="h-9 text-sm"
-                      disabled={finalizing || !savedReportText.trim() || Boolean(finalizedAt)}
+                      disabled={finalizing}
                       onClick={() => void toggleFinalize(true)}
                     >
                       {finalizing ? "处理中…" : "定稿"}
@@ -775,7 +790,6 @@ export function CheckupReportPanel({
                       size="sm"
                       variant="outline"
                       className="h-9 text-sm"
-                      disabled={!savedReportText.trim()}
                       onClick={() => setShowSendPanel((v) => !v)}
                     >
                       发送客户邮箱
@@ -804,7 +818,7 @@ export function CheckupReportPanel({
                       onChange={(e) => setLlmSource(e.target.value)}
                       className="h-9 rounded-sm border border-border/60 bg-transparent px-2 text-sm text-muted-foreground"
                     >
-                      <option value="">自动（按默认顺序）</option>
+                      <option value="">模型选择（自动）</option>
                       {llmProfiles.map((p) => (
                         <option key={p.source} value={p.source}>
                           {p.model}-{p.source === "own" ? "自用" : p.source === "shared" ? "共用" : "共用备用"}

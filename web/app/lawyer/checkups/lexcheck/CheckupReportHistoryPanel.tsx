@@ -169,11 +169,13 @@ export function CheckupReportHistoryPanel({
                   ? "融合"
                   : job.mode === "assembled_concat" || job.mode === "assembled"
                     ? "拼装"
-                    : job.mode === "assembled_no_ai"
-                      ? "无 AI"
-                      : job.mode === "sync_full"
-                        ? "同步"
-                        : "分块"}
+                    : job.mode === "assembled_advanced"
+                      ? "高级"
+                      : job.mode === "assembled_no_ai"
+                        ? "无 AI"
+                        : job.mode === "sync_full"
+                          ? "同步"
+                          : "分块"}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
